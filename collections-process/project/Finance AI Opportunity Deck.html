@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Collections Reconciliation — Process & AI Opportunities</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f4efe6;
+    --paper: #faf6ee;
+    --card: #ffffff;
+    --ink: #16140f;
+    --ink-2: #3a352d;
+    --muted: #7a7268;
+    --line: #d8cebc;
+    --line-soft: #e7decb;
+    --indigo: oklch(0.52 0.14 264);
+    --indigo-soft: oklch(0.95 0.03 264);
+    --amber: oklch(0.62 0.15 55);
+    --amber-soft: oklch(0.95 0.04 65);
+    --teal:  oklch(0.55 0.10 195);
+    --teal-soft: oklch(0.95 0.03 195);
+    --red:   oklch(0.55 0.18 25);
+    --green: oklch(0.55 0.13 145);
+    --shadow: 0 1px 0 rgba(22,20,15,0.04), 0 8px 24px -16px rgba(22,20,15,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font-family: "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    letter-spacing: 0.005em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  .num  { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+
+  .shell { max-width: 1320px; margin: 0 auto; padding: 56px 48px 96px; }
+
+  /* ------------------------------------------------------------------ HEADER */
+  .doc-meta {
+    display: flex; align-items: center; gap: 16px;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 28px;
+  }
+  .doc-meta .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); display: inline-block; }
+  .doc-meta .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2);
+  }
+  h1 {
+    font-size: 56px; line-height: 1.02; letter-spacing: -0.02em;
+    font-weight: 500; margin: 0 0 16px; max-width: 920px;
+  }
+  h1 em { font-style: normal; color: var(--indigo); font-weight: 500; }
+  .lede { font-size: 17px; line-height: 1.5; color: var(--ink-2); max-width: 760px; margin: 0 0 36px; }
+  .lede strong { font-weight: 500; color: var(--ink); }
+
+  .header-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px;
+    padding: 28px 0 36px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    margin-bottom: 56px;
+  }
+  .legend h4, .summary h4 {
+    margin: 0 0 14px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .legend-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .legend-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 14px; border: 1px solid rgba(0,0,0,0.08); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .stat { padding: 0 16px 0 0; }
+  .stat + .stat { padding-left: 16px; border-left: 1px solid var(--line-soft); }
+  .stat .v { font-size: 28px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+  .stat .l { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 8px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  /* ------------------------------------------------------------------ SECTION SHELL */
+  section { margin-bottom: 88px; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 16px; margin-bottom: 32px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--line);
+  }
+  .section-head .ix {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 0.1em; color: var(--muted);
+  }
+  .section-head h2 {
+    margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.1;
+  }
+  .section-head .h-note { margin-left: auto; color: var(--muted); font-size: 13px; max-width: 360px; text-align: right; }
+
+  /* ------------------------------------------------------------------ DAILY RECON DIAGRAM */
+  .recon {
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .recon-time {
+    background: linear-gradient(180deg, rgba(22,20,15,0.03), rgba(22,20,15,0.06));
+    border-right: 1px solid var(--line);
+    padding: 0;
+  }
+  .recon-time .tcell {
+    padding: 22px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    display: flex; flex-direction: column; gap: 6px;
+    min-height: 188px;
+  }
+  .recon-time .tcell:last-child { border-bottom: none; }
+  .recon-time .tcell .time {
+    font-size: 22px; letter-spacing: -0.01em; color: var(--ink);
+    text-transform: none; font-weight: 500;
+  }
+  .recon-time .tcell .tag {
+    display: inline-block; padding: 2px 7px; border-radius: 3px;
+    background: var(--ink); color: var(--paper); font-size: 10px; letter-spacing: 0.08em;
+    width: fit-content;
+  }
+  .recon-lanes {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .lane {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    border-bottom: 1px solid var(--line-soft);
+    min-height: 188px;
+  }
+  .lane:last-child { border-bottom: none; }
+  .lane-main {
+    padding: 20px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+    border-right: 1px dashed var(--line);
+  }
+  .lane-main h3 {
+    font-size: 17px; font-weight: 500; letter-spacing: -0.005em;
+    margin: 0; line-height: 1.25;
+  }
+  .lane-main p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.5; max-width: 640px; }
+  .step-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--card);
+    padding: 4px 8px 4px 6px; border-radius: 999px;
+    font-size: 11px; color: var(--ink-2); font-family: "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.02em;
+  }
+  .chip .cdot { width: 7px; height: 7px; border-radius: 50%; }
+  .chip[data-sys="wahu"] .cdot { background: var(--ink); }
+  .chip[data-sys="zoho"] .cdot { background: var(--teal); }
+  .chip[data-sys="mtn"]  .cdot { background: oklch(0.65 0.18 50); }
+  .chip[data-sys="voda"] .cdot { background: var(--red); }
+  .chip[data-sys="hero"] .cdot { background: oklch(0.55 0.13 145); }
+  .chip[data-sys="agency"] .cdot { background: oklch(0.55 0.10 290); }
+  .chip[data-sys="rcb"] .cdot { background: var(--muted); }
+
+  .owner {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .owner::before { content: ""; width: 16px; height: 1px; background: var(--muted); }
+
+  /* Claude lane */
+  .lane-ai {
+    padding: 20px 22px;
+    background: linear-gradient(180deg, var(--indigo-soft), color-mix(in oklch, var(--indigo-soft) 70%, white));
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative;
+  }
+  .lane-ai::before {
+    content: "CLAUDE SKILL"; position: absolute; top: 10px; right: 16px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 9px; letter-spacing: 0.14em; color: var(--indigo); font-weight: 600;
+  }
+  .lane-ai h4 {
+    font-size: 14px; font-weight: 500; margin: 16px 0 0; color: var(--indigo);
+    letter-spacing: -0.005em;
+  }
+  .lane-ai p {
+    font-size: 12px; color: var(--ink-2); margin: 0; line-height: 1.5;
+  }
+  .lane-ai .impact {
+    margin-top: auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 10px; border-top: 1px dashed color-mix(in oklch, var(--indigo) 25%, transparent);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.08em; color: var(--indigo); text-transform: uppercase;
+  }
+  .impact b { font-weight: 600; color: var(--ink); }
+
+  /* Risk lane variant (when manual is the headline) */
+  .lane.manual .lane-main h3 { color: var(--ink); }
+  .lane.manual .lane-main { background: linear-gradient(180deg, transparent, color-mix(in oklch, var(--amber-soft) 50%, transparent)); }
+
+  /* lane connector arrows */
+  .lane-main { position: relative; }
+  .lane-main::after {
+    content: ""; position: absolute; left: 36px; bottom: -1px;
+    width: 1px; height: 14px; background: var(--ink);
+    transform: translateY(100%);
+  }
+  .lane:last-child .lane-main::after { display: none; }
+
+  /* ------------------------------------------------------------------ WEEKLY RIBBON */
+  .week-ribbon {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 18px;
+  }
+  .day {
+    border-radius: 4px; padding: 14px 14px 16px;
+    background: var(--card); border: 1px solid var(--line-soft);
+    display: flex; flex-direction: column; gap: 8px; min-height: 168px;
+  }
+  .day .dh {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .day .dh .dn { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .day .dh .di { font-size: 16px; color: var(--ink); letter-spacing: -0.01em; font-weight: 500; }
+  .day h5 { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .day p { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
+  .day.is-anchor { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .day.is-anchor .dh .dn, .day.is-anchor .dh .di, .day.is-anchor h5 { color: var(--paper); }
+  .day.is-anchor p { color: color-mix(in oklch, var(--paper) 70%, transparent); }
+  .day .syschip {
+    margin-top: auto; align-self: flex-start;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.08em; color: var(--indigo);
+    background: var(--indigo-soft); padding: 3px 7px; border-radius: 3px;
+  }
+  .day.is-anchor .syschip { background: rgba(255,255,255,0.12); color: var(--paper); }
+
+  /* ------------------------------------------------------------------ ENFORCEMENT LADDER */
+  .ladder {
+    border: 1px solid var(--line); border-radius: 6px; background: var(--paper);
+    overflow: hidden;
+  }
+  .ladder-row {
+    display: grid;
+    grid-template-columns: 120px 180px 1fr 320px;
+    align-items: stretch;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .ladder-row:last-child { border-bottom: none; }
+  .ladder-row > div { padding: 18px 20px; }
+  .ladder-row .lr-days {
+    background: var(--card); border-right: 1px solid var(--line-soft);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ladder-row .lr-days .d {
+    font-size: 22px; letter-spacing: -0.01em; color: var(--ink); font-weight: 500;
+  }
+  .ladder-row .lr-days .u {
+    font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase;
+  }
+  .ladder-row .lr-status {
+    border-right: 1px solid var(--line-soft);
+    display: flex; flex-direction: column; gap: 6px; justify-content: center;
+  }
+  .ladder-row .lr-status .s {
+    font-size: 14px; font-weight: 500; letter-spacing: -0.005em;
+  }
+  .ladder-row .lr-status .b {
+    display: inline-block; width: fit-content; padding: 2px 7px; border-radius: 3px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .lr-status .b.b-green { background: color-mix(in oklch, var(--green) 12%, white); color: var(--green); }
+  .lr-status .b.b-amber { background: color-mix(in oklch, var(--amber) 12%, white); color: var(--amber); }
+  .lr-status .b.b-red   { background: color-mix(in oklch, var(--red) 12%, white);   color: var(--red); }
+  .lr-status .b.b-ink   { background: var(--ink); color: var(--paper); }
+  .ladder-row .lr-action { display: flex; flex-direction: column; gap: 8px; }
+  .ladder-row .lr-action .a { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+  .ladder-row .lr-action .meta {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .ladder-row .lr-ai {
+    background: var(--indigo-soft);
+    border-left: 1px solid color-mix(in oklch, var(--indigo) 20%, transparent);
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .ladder-row .lr-ai::before {
+    content: "CLAUDE"; position: absolute; top: 12px; right: 16px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 9px; letter-spacing: 0.14em; color: var(--indigo); font-weight: 600;
+  }
+  .ladder-row .lr-ai .t { font-size: 13px; font-weight: 500; color: var(--indigo); margin-top: 8px; }
+  .ladder-row .lr-ai .d { font-size: 12px; color: var(--ink-2); line-height: 1.5; }
+
+  /* ------------------------------------------------------------------ SKILLS CATALOG */
+  .skills {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .skill {
+    background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+    padding: 20px 22px 18px; display: flex; flex-direction: column; gap: 10px;
+    position: relative; overflow: hidden;
+  }
+  .skill::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--indigo);
+  }
+  .skill .sk-id {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.12em; color: var(--muted);
+  }
+  .skill h4 {
+    margin: 0; font-size: 16px; font-weight: 500; letter-spacing: -0.005em; line-height: 1.25;
+  }
+  .skill .desc { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+  .skill .kvs {
+    margin-top: auto; padding-top: 12px; border-top: 1px dashed var(--line);
+    display: grid; grid-template-columns: 64px 1fr; row-gap: 6px; column-gap: 12px;
+  }
+  .skill .kvs .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    align-self: center;
+  }
+  .skill .kvs .v {
+    font-size: 11.5px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px;
+  }
+  .skill[data-tier="hi"]::before  { background: var(--indigo); }
+  .skill[data-tier="med"]::before { background: var(--amber); }
+  .skill[data-tier="low"]::before { background: var(--muted); }
+  .skill .tier {
+    position: absolute; top: 18px; right: 18px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 3px;
+  }
+  .skill[data-tier="hi"] .tier  { background: var(--indigo-soft); color: var(--indigo); }
+  .skill[data-tier="med"] .tier { background: var(--amber-soft); color: var(--amber); }
+  .skill[data-tier="low"] .tier { background: #ebe6db; color: var(--muted); }
+
+  /* ------------------------------------------------------------------ FOLDERS PANEL */
+  .folders {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  }
+  .folder {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+    padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .folder .fh { display: flex; align-items: center; gap: 8px; }
+  .folder .fh .fdot { width: 8px; height: 8px; border-radius: 2px; }
+  .folder .fh .fn {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink);
+  }
+  .folder h5 { margin: 0; font-size: 15px; font-weight: 500; letter-spacing: -0.005em; }
+  .folder .p { font-size: 12px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+  .folder ul { margin: 6px 0 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); }
+  .folder ul li { margin-bottom: 3px; line-height: 1.4; }
+
+  /* ------------------------------------------------------------------ FOOTER */
+  .footer {
+    margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--muted); letter-spacing: 0.06em;
+  }
+  .footer .r { display: flex; gap: 18px; }
+
+  /* hover affordances */
+  .lane:hover .lane-ai { background: linear-gradient(180deg, color-mix(in oklch, var(--indigo-soft) 80%, white), var(--indigo-soft)); }
+  .skill:hover { box-shadow: var(--shadow); transform: translateY(-1px); transition: all 160ms ease; }
+  .folder:hover { background: var(--card); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="Finance AI Opportunity Deck">
+
+  <!-- ============================================================== HEADER -->
+  <div class="doc-meta">
+    <span>Wahu Mobility — Finance &amp; Collections</span>
+    <span class="dot"></span>
+    <span>Process Map · v1.0</span>
+    <span class="dot"></span>
+    <span class="pill">Source · Collections Management Process</span>
+    <span class="pill">Owner · Collections &amp; Credit Risk Unit</span>
+  </div>
+
+  <h1>Collections Reconciliation —<br/>process, data sources, and <em>where Claude earns its keep.</em></h1>
+  <p class="lede">
+    Every weekday, three payment streams (MTN MoMo, Vodafone MoMo, Hero App) have to be matched
+    against ~<strong>active rider invoices</strong> in Wahu OS and Zoho Billing, and reconciled by
+    <strong>12:00 GMT</strong>. This document walks the daily loop end-to-end, names the system of record
+    behind every step, and flags <span style="color: var(--indigo)">the Claude skill</span> that removes the
+    manual work — without removing the four-eyes control.
+  </p>
+
+  <div class="header-grid">
+    <div class="legend">
+      <h4>Systems / folders of record</h4>
+      <div class="legend-rows">
+        <div class="legend-row"><span class="swatch" style="background: #16140f"></span><span><b class="mono">WAHU OS</b> &middot; rider master, ledger, GPS, flags</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.55 0.10 195)"></span><span><b class="mono">ZOHO BILLING</b> &middot; invoices &amp; manual postings</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.65 0.18 50)"></span><span><b class="mono">MTN MERCHANT</b> &middot; 0598953614 portal CSV</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.55 0.18 25)"></span><span><b class="mono">VODA MERCHANT</b> &middot; 0200447867 portal CSV</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.55 0.13 145)"></span><span><b class="mono">HERO APP</b> &middot; pre-tagged rider payments CSV</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.55 0.10 290)"></span><span><b class="mono">CLIENT PORTAL</b> &middot; Horta / TSA agency view</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.52 0.14 264)"></span><span><b class="mono">CLAUDE</b> &middot; AI skill applied to the step</span></div>
+        <div class="legend-row"><span class="swatch" style="background: oklch(0.62 0.15 55)"></span><span><b class="mono">MANUAL</b> &middot; human review / four-eyes</span></div>
+      </div>
+    </div>
+    <div class="summary">
+      <h4>Operating shape</h4>
+      <div class="stats">
+        <div class="stat"><div class="v">70w</div><div class="l">Contract</div></div>
+        <div class="stat"><div class="v">₵420</div><div class="l">Weekly bill</div></div>
+        <div class="stat"><div class="v">₵70</div><div class="l">Daily target</div></div>
+        <div class="stat"><div class="v">3h</div><div class="l">Daily recon SLA</div></div>
+      </div>
+      <div class="stats" style="margin-top: 18px;">
+        <div class="stat"><div class="v">≥95%</div><div class="l">Collection rate</div></div>
+        <div class="stat"><div class="v">≤5%</div><div class="l">PAR &gt; 7d</div></div>
+        <div class="stat"><div class="v">24h</div><div class="l">Immobilise SLA</div></div>
+        <div class="stat"><div class="v">24h</div><div class="l">Repossess SLA</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== SECTION 1: DAILY LOOP -->
+  <section>
+    <div class="section-head">
+      <span class="ix">01</span>
+      <h2>The Daily Reconciliation Loop</h2>
+      <div class="h-note">Runs every working day. Closes by 12:00 GMT. Owner: Collections Officer, four-eyes by Finance Officer.</div>
+    </div>
+
+    <div class="recon">
+      <!-- TIME COLUMN -->
+      <div class="recon-time">
+        <div class="tcell"><span class="tag">T-1</span><span class="time">Overnight</span><span>Payments accrue</span></div>
+        <div class="tcell"><span class="tag">09:00</span><span class="time">Pull</span><span>Three CSVs</span></div>
+        <div class="tcell"><span class="tag">09:30</span><span class="time">Auto-match</span><span>Rules engine</span></div>
+        <div class="tcell"><span class="tag">10:00</span><span class="time">Investigate</span><span>Exception queue</span></div>
+        <div class="tcell"><span class="tag">11:00</span><span class="time">Post</span><span>OS → Zoho</span></div>
+        <div class="tcell"><span class="tag">12:00</span><span class="time">Close</span><span>Four-eyes</span></div>
+        <div class="tcell"><span class="tag">14:00</span><span class="time">Report</span><span>Distribute</span></div>
+      </div>
+
+      <!-- LANES -->
+      <div class="recon-lanes">
+
+        <!-- Lane 1 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>Riders pay through three channels — the system has to listen to all of them.</h3>
+            <p>
+              Riders pay <span class="mono">GHS 70</span> per day (or weekly lumps of <span class="mono">140 / 210 / 420</span>) via MTN merchant
+              <span class="mono">0598953614</span>, Vodafone merchant <span class="mono">0200447867</span>, or the Wahu Hero App. Each channel
+              produces its own audit trail; only the Hero App is pre-tagged to a rider ID.
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="mtn"><span class="cdot"></span>MTN merchant portal</span>
+              <span class="chip" data-sys="voda"><span class="cdot"></span>Vodafone merchant portal</span>
+              <span class="chip" data-sys="hero"><span class="cdot"></span>Hero App ledger</span>
+            </div>
+            <div class="owner">Owner · Rider &middot; passive listening</div>
+          </div>
+          <div class="lane-ai">
+            <h4>— no AI yet, this is just raw signal.</h4>
+            <p>Three folders fill overnight; the recon job starts when they're stable at 09:00 GMT.</p>
+            <div class="impact"><span>Inputs</span><b>3 CSVs &middot; ~hundreds of lines</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 2 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>09:00 — Pull and consolidate the three extracts into one workbook.</h3>
+            <p>
+              Collections Officer logs into both merchant portals, exports yesterday's transaction CSVs,
+              and pulls the Hero App CSV from Wahu OS. Today these land in three different shapes (column
+              orders, date formats, MSISDN encodings) and have to be reconciled into one workbook.
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="mtn"><span class="cdot"></span>/MTN_Merchant/Exports/yyyy-mm-dd.csv</span>
+              <span class="chip" data-sys="voda"><span class="cdot"></span>/Voda_Merchant/Exports/yyyy-mm-dd.csv</span>
+              <span class="chip" data-sys="hero"><span class="cdot"></span>WahuOS &gt; Reports &gt; Hero Payments</span>
+            </div>
+            <div class="owner">Owner · Collections Officer &middot; ~30 min today</div>
+          </div>
+          <div class="lane-ai">
+            <h4>CSV Ingest &amp; Normalize</h4>
+            <p>
+              Claude reads all three CSVs, normalises columns (date, MSISDN, amount, ref, name) and emits
+              a single canonical workbook. Same skill catches schema drift (a new column from a portal
+              update) before it corrupts the day's recon.
+            </p>
+            <div class="impact"><span>Skill 01</span><b>−25 min / day</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 3 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>09:30 — Auto-match: rider name + MSISDN, or MSISDN + standard amount.</h3>
+            <p>
+              Three rules clear the easy cases: exact <b>name + registered MSISDN</b>, <b>registered MSISDN
+              + amount ∈ {70, 140, 210, 420}</b>, and <b>Hero App pre-tagged</b> lines (verify-only). Everything
+              that auto-matches posts to the rider's ledger in Wahu OS.
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS rider master</span>
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS ledger</span>
+              <span class="chip" data-sys="hero"><span class="cdot"></span>Hero pre-tag</span>
+            </div>
+            <div class="owner">Owner · Wahu OS rules engine</div>
+          </div>
+          <div class="lane-ai">
+            <h4>Fuzzy Matcher</h4>
+            <p>
+              Claude tightens the auto-match band: tolerates name re-orderings ("Kofi A. Mensah" vs
+              "Mensah Kofi"), spelling drift, and Akan/English variants. Lifts auto-match rate from
+              ~70% to ~92%, shrinking the exception queue.
+            </p>
+            <div class="impact"><span>Skill 02</span><b>+22pp auto-match</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 4 -->
+        <div class="lane manual">
+          <div class="lane-main">
+            <h3>10:00 — Investigate the exception queue (today's most expensive step).</h3>
+            <p>
+              For each unmatched line: name missing or mis-spelled → look up sender MSISDN. Unknown MSISDN →
+              call the sender from the portal number. Over-payment → carry credit. Under-payment → FIFO
+              against oldest open invoice. Anything still unresolved by 48h drops into the MoMo Suspense GL.
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS rider master</span>
+              <span class="chip" data-sys="rcb"><span class="cdot"></span>MoMo Suspense GL</span>
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>Rider notes</span>
+            </div>
+            <div class="owner">Owner · Collections Officer &middot; today: 60–90 min</div>
+          </div>
+          <div class="lane-ai">
+            <h4>Exception Triage Agent</h4>
+            <p>
+              Claude classifies every exception (name-drift / unknown sender / over-pay / under-pay /
+              duplicate), proposes the most likely rider match with confidence, and drafts the verification
+              SMS or call script. Officer approves with a click; ambiguous cases stay human.
+            </p>
+            <div class="impact"><span>Skill 03 + 04</span><b>−45 min / day</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 5 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>11:00 — Post to Wahu OS ledger, then re-key each payment into Zoho Billing (FIFO).</h3>
+            <p>
+              The single largest operational risk in the workflow today: every matched payment is keyed
+              manually into Zoho against the oldest open invoice, referencing the source transaction ID.
+              Reversals are restricted to a Finance Officer (segregation of duties).
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS ledger (post)</span>
+              <span class="chip" data-sys="zoho"><span class="cdot"></span>Zoho Billing (manual key-in)</span>
+              <span class="chip" data-sys="zoho"><span class="cdot"></span>Source TXN ID required</span>
+            </div>
+            <div class="owner">Owner · Collections Officer &middot; today: 45–60 min</div>
+          </div>
+          <div class="lane-ai">
+            <h4>Zoho Bridge (until API)</h4>
+            <p>
+              Claude generates the per-rider posting set with source TXN IDs already attached, applies FIFO,
+              and writes via Zoho Billing's API — or, in a fallback mode, drives a browser session against
+              the Zoho UI. Eliminates re-keying entirely; medium-term retires the manual step.
+            </p>
+            <div class="impact"><span>Skill 05</span><b>−55 min / day</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 6 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>12:00 — Four-eyes close. Variance investigated before recon is signed off.</h3>
+            <p>
+              Finance Officer verifies total value keyed into Zoho equals total matched in the recon
+              workbook. Any variance is chased before sign-off. Workbook is signed by both officers and
+              archived for 7 years.
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="rcb"><span class="cdot"></span>Daily Recon Workbook</span>
+              <span class="chip" data-sys="rcb"><span class="cdot"></span>Audit archive (7yr)</span>
+            </div>
+            <div class="owner">Owner · Finance Officer &middot; control retained</div>
+          </div>
+          <div class="lane-ai">
+            <h4>Variance Detective</h4>
+            <p>
+              Claude runs the tie-out, surfaces the specific lines causing variance, and proposes
+              the cause (duplicate post, wrong invoice number, missing TXN ID). Human still signs;
+              the time-to-find-the-error collapses from minutes to seconds.
+            </p>
+            <div class="impact"><span>Skill 06</span><b>−15 min / day</b></div>
+          </div>
+        </div>
+
+        <!-- Lane 7 -->
+        <div class="lane">
+          <div class="lane-main">
+            <h3>14:00 — Daily Reconciliation Report distributed to Head of Collections, Finance, Ops.</h3>
+            <p>
+              Eight sections: cash summary, matched vs unmatched, rider-level detail, risk flags raised,
+              exceptions, weekly forecast, fleet utilisation, and lost-revenue calc (inactive bikes × ₵70/day).
+            </p>
+            <div class="step-chips">
+              <span class="chip" data-sys="rcb"><span class="cdot"></span>Daily Recon Report</span>
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS fleet + GPS</span>
+              <span class="chip" data-sys="wahu"><span class="cdot"></span>Risk flags (auto)</span>
+            </div>
+            <div class="owner">Owner · Collections Officer &middot; today: ~45 min</div>
+          </div>
+          <div class="lane-ai">
+            <h4>Report Drafter</h4>
+            <p>
+              Claude assembles all eight sections from the closed workbook, fleet feed and flags feed.
+              Drafts the executive summary line ("collection rate 96.2% vs target 95%; 4 riders crossed
+              into immobilisation queue") and ships PDF + Slack-friendly summary.
+            </p>
+            <div class="impact"><span>Skill 07</span><b>−40 min / day</b></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== SECTION 2: WEEKLY RIBBON -->
+  <section>
+    <div class="section-head">
+      <span class="ix">02</span>
+      <h2>Where the loop sits inside the weekly cycle</h2>
+      <div class="h-note">Bike handover Friday. Invoice Monday. Payment expected daily. Statement &amp; credit score Sunday. Repeat 70 times.</div>
+    </div>
+    <div class="week-ribbon">
+      <div class="day is-anchor">
+        <div class="dh"><span class="dn">Fri</span><span class="di">D-3</span></div>
+        <h5>Bike deployment</h5>
+        <p>Operations hands over bike. Wahu OS rider record activated. Contract clock starts.</p>
+        <span class="syschip">WAHU OS</span>
+      </div>
+      <div class="day">
+        <div class="dh"><span class="dn">Sat</span><span class="di">D-2</span></div>
+        <h5>First-day rides</h5>
+        <p>Early payment behaviour observed. Rolling 8-week profile begins building.</p>
+        <span class="syschip">WAHU OS &middot; HERO</span>
+      </div>
+      <div class="day">
+        <div class="dh"><span class="dn">Sun</span><span class="di">D-1</span></div>
+        <h5>Quiet day / statement send</h5>
+        <p>For existing riders: weekly PDF statement + updated credit score emailed.</p>
+        <span class="syschip">CLAUDE · Skill 08</span>
+      </div>
+      <div class="day is-anchor">
+        <div class="dh"><span class="dn">Mon</span><span class="di">D0</span></div>
+        <h5>Invoice day</h5>
+        <p>Zoho Billing auto-generates the GHS 420 weekly invoice at 07:00 GMT, 7 days in advance.</p>
+        <span class="syschip">ZOHO BILLING</span>
+      </div>
+      <div class="day">
+        <div class="dh"><span class="dn">Tue</span><span class="di">D+1</span></div>
+        <h5>Daily recon + agency sync</h5>
+        <p>09:00 recon loop runs. 10:00 weekly performance meeting with Horta &amp; TSA.</p>
+        <span class="syschip">CLAUDE · Skills 01-07</span>
+      </div>
+      <div class="day">
+        <div class="dh"><span class="dn">Wed</span><span class="di">D+2</span></div>
+        <h5>Mid-week risk pulse</h5>
+        <p>Behavioural flags fire: daily payers missing 2 days, weekly payers past usual pay day.</p>
+        <span class="syschip">CLAUDE · Skill 09</span>
+      </div>
+      <div class="day">
+        <div class="dh"><span class="dn">Thu/Fri</span><span class="di">D+3-4</span></div>
+        <h5>Late-week chase</h5>
+        <p>Day-5 trigger: weekly payers below 50% &rarr; Red flag, weekend payment plan negotiated.</p>
+        <span class="syschip">CLAUDE · Skill 10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== SECTION 3: ENFORCEMENT LADDER -->
+  <section>
+    <div class="section-head">
+      <span class="ix">03</span>
+      <h2>When riders fall behind — the graduated ladder</h2>
+      <div class="h-note">Every step logged in Wahu OS with timestamp, actor and evidence. Enforcement is defensible by design.</div>
+    </div>
+
+    <div class="ladder">
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">1–2</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-green">Reminder</span><span class="s">Automated nudge</span></div>
+        <div class="lr-action">
+          <div class="a">Automated SMS + email reminder from Wahu OS. No human contact yet. Logged against rider record.</div>
+          <div class="meta">
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS notifications</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Reminder Composer</span>
+          <span class="d">Claude personalises copy by rider's payment history &amp; preferred channel — not just a template blast.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">3–6</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-amber">Soft Collection</span><span class="s">Officer calls</span></div>
+        <div class="lr-action">
+          <div class="a">Collections Officer calls the rider, negotiates a Promise-to-Pay (PTP) with date, logs outcome in Wahu OS. Broken PTPs auto-escalate the flag.</div>
+          <div class="meta">
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS &gt; Rider &gt; Contact log</span>
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS &gt; PTP register</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Call Prep Brief + PTP Tracker</span>
+          <span class="d">Claude prepares a 5-line rider brief before the call (history, last excuse, GPS, score trend) and watches PTP fulfilment in the background.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">7</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-red">Immobilisation</span><span class="s">Head of Collections signs</span></div>
+        <div class="lr-action">
+          <div class="a">Operations issues remote immobilisation command via Wahu OS within 24h. GPS confirmed before/after. SMS + call explains what payment unlocks the bike. Reversal within 2h of cleared arrears.</div>
+          <div class="meta">
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS &gt; Bike command</span>
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>GPS pre/post check</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Immobilisation Pre-flight</span>
+          <span class="d">Claude assembles the sign-off pack: rider statement, contact attempts, score, GPS — so the Head of Collections approves in one screen.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">8–14</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-red">Hard Collection</span><span class="s">Field visit + demand letter</span></div>
+        <div class="lr-action">
+          <div class="a">Daily calls. One field visit by the assigned agency (Horta or TSA). Formal demand letter issued. Bike stays immobilised until arrears clear OR a signed payment plan exists.</div>
+          <div class="meta">
+            <span class="chip" data-sys="agency"><span class="cdot"></span>Agency client portal</span>
+            <span class="chip" data-sys="rcb"><span class="cdot"></span>Demand letter template</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Demand Letter Drafter</span>
+          <span class="d">Claude fills the demand letter from rider + statement + enforcement log. Officer reviews, signs, sends.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">15–29</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-red">Final Notice</span><span class="s">Guarantor notified</span></div>
+        <div class="lr-action">
+          <div class="a">Registered final demand. Guarantor notified. Repossession team briefed; asset located via GPS. Last 48h window for rider rehabilitation.</div>
+          <div class="meta">
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS &gt; Guarantor record</span>
+            <span class="chip" data-sys="agency"><span class="cdot"></span>Field plan</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Recovery Plan Synthesiser</span>
+          <span class="d">Claude proposes the field plan from GPS + neighbourhood + agency: route, safety notes, fallback windows.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">30</span><span class="u">days past due</span></div>
+        <div class="lr-status"><span class="b b-ink">Repossession</span><span class="s">HoC + Finance sign</span></div>
+        <div class="lr-action">
+          <div class="a">Field Recovery recovers the bike within 24h of authorisation. Asset returned to fleet yard same day. Condition report signed by recovery + fleet manager. Account moves to Recovery status.</div>
+          <div class="meta">
+            <span class="chip" data-sys="agency"><span class="cdot"></span>Agency recovery report</span>
+            <span class="chip" data-sys="wahu"><span class="cdot"></span>WahuOS &gt; Asset condition</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Condition Report Capture</span>
+          <span class="d">Claude turns the fleet manager's photos + voice notes into a structured condition report against the bike's deployment baseline.</span>
+        </div>
+      </div>
+
+      <div class="ladder-row">
+        <div class="lr-days"><span class="d">90+</span><span class="u">PAR 90 / write-off</span></div>
+        <div class="lr-status"><span class="b b-ink">Legal / Write-off</span><span class="s">HoC + CFO + CEO</span></div>
+        <div class="lr-action">
+          <div class="a">Case file prepared (contract, statement, enforcement log, demand evidence, guarantor). External counsel issues letter of demand + court filing. On assignment to debt collector, balance is written off; recoveries booked as recovery on written-off debt.</div>
+          <div class="meta">
+            <span class="chip" data-sys="rcb"><span class="cdot"></span>Legal case file</span>
+            <span class="chip" data-sys="rcb"><span class="cdot"></span>Write-off register</span>
+          </div>
+        </div>
+        <div class="lr-ai">
+          <span class="t">Case File Builder</span>
+          <span class="d">Claude compiles the legal pack end-to-end: every doc, every timestamp, every approver — externally-counsel-ready.</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== SECTION 4: SKILLS CATALOG -->
+  <section>
+    <div class="section-head">
+      <span class="ix">04</span>
+      <h2>Claude skills, ordered by where they unlock the most time</h2>
+      <div class="h-note">Tier &middot; <b style="color: var(--indigo)">High</b> = build first. &middot; <b style="color: var(--amber)">Mid</b> = build next quarter. &middot; <b style="color: var(--muted)">Low</b> = nice-to-have.</div>
+    </div>
+
+    <div class="skills">
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 01</div>
+        <div class="tier">High</div>
+        <h4>CSV Ingest &amp; Normalize</h4>
+        <p class="desc">Reads the MTN, Vodafone and Hero App CSVs as they land, normalises column order, MSISDN format, date format, amount, and emits one canonical workbook. Catches schema drift before it corrupts recon.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="mtn"><span class="cdot"></span>MTN</span><span class="chip" data-sys="voda"><span class="cdot"></span>Voda</span><span class="chip" data-sys="hero"><span class="cdot"></span>Hero</span></div>
+          <div class="k">Output</div><div class="v">Daily Recon Workbook</div>
+          <div class="k">Saves</div><div class="v">~25 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 02</div>
+        <div class="tier">High</div>
+        <h4>Fuzzy Name Matcher</h4>
+        <p class="desc">Tolerates name re-orderings, mis-spellings and Akan/English variants when matching payment reference to rider master. Lifts auto-match from ~70% to ~92%.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Rider master</span></div>
+          <div class="k">Output</div><div class="v">Match + confidence</div>
+          <div class="k">Saves</div><div class="v">+22pp auto-match</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 03</div>
+        <div class="tier">High</div>
+        <h4>Exception Triage Agent</h4>
+        <p class="desc">Classifies every unmatched line as name-drift / unknown sender / over-pay / under-pay / duplicate, proposes most likely rider with confidence, and drafts the verification SMS or call script.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Rider + ledger</span></div>
+          <div class="k">Output</div><div class="v">Action queue (1-click)</div>
+          <div class="k">Saves</div><div class="v">~45 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 04</div>
+        <div class="tier">High</div>
+        <h4>Verification Outreach Drafter</h4>
+        <p class="desc">For unknown senders or name mismatches, drafts the call opener + SMS in the rider's preferred language. Logs outcome straight back to Wahu OS.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Rider profile</span></div>
+          <div class="k">Output</div><div class="v">Script + log entry</div>
+          <div class="k">Saves</div><div class="v">~10 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 05</div>
+        <div class="tier">High</div>
+        <h4>Zoho Bridge (until API)</h4>
+        <p class="desc">Generates per-rider postings with source TXN IDs attached, applies FIFO, posts via Zoho API (or drives the UI as a fallback). Retires the single largest operational risk in the daily flow.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Ledger</span><span class="chip" data-sys="zoho"><span class="cdot"></span>Open invoices</span></div>
+          <div class="k">Output</div><div class="v">Zoho payment records</div>
+          <div class="k">Saves</div><div class="v">~55 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 06</div>
+        <div class="tier">High</div>
+        <h4>Variance Detective</h4>
+        <p class="desc">Runs the four-eyes tie-out between recon workbook total and Zoho-posted total. When there's a gap, names the exact line(s) and the most likely cause.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="zoho"><span class="cdot"></span>Zoho posts</span><span class="chip" data-sys="rcb"><span class="cdot"></span>Workbook</span></div>
+          <div class="k">Output</div><div class="v">Variance brief</div>
+          <div class="k">Saves</div><div class="v">~15 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 07</div>
+        <div class="tier">High</div>
+        <h4>Daily Recon Report Drafter</h4>
+        <p class="desc">Assembles all 8 sections (cash, match-rate, riders, flags, exceptions, forecast, fleet, lost revenue) from the closed workbook + fleet feed + flags. Drafts the exec summary line.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Workbook + fleet</span></div>
+          <div class="k">Output</div><div class="v">PDF + Slack post</div>
+          <div class="k">Saves</div><div class="v">~40 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="hi">
+        <div class="sk-id">SKILL · 08</div>
+        <div class="tier">High</div>
+        <h4>Rider Weekly Statement &amp; Credit Score</h4>
+        <p class="desc">Sunday evening run: per rider, computes the 4-component credit score (settlement 40%, consistency 30%, days-in-arrears 20%, channel 10%), assigns Green/Amber/Red band with a one-line behavioural note, ships the PDF.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>8-week ledger</span></div>
+          <div class="k">Output</div><div class="v">PDF + score</div>
+          <div class="k">Saves</div><div class="v">~3 hr / week</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="med">
+        <div class="sk-id">SKILL · 09</div>
+        <div class="tier">Mid</div>
+        <h4>Behavioural Risk Flag Engine</h4>
+        <p class="desc">Watches each rider's 8-week profile (cadence, pay-day, channel, time-window) and fires Amber / Red / Soft flags when behaviour deviates from baseline — including channel switches and GPS-inactive bikes.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Rolling 8w</span></div>
+          <div class="k">Output</div><div class="v">Flag + action</div>
+          <div class="k">Saves</div><div class="v">Catches risk pre-due</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="med">
+        <div class="sk-id">SKILL · 10</div>
+        <div class="tier">Mid</div>
+        <h4>Outreach Composer (SMS / Call brief)</h4>
+        <p class="desc">For Amber and Red flags, drafts the rider-specific SMS or call opener — never threatening, always referencing the rider's actual pattern. Cuts officer prep to seconds.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Flag + history</span></div>
+          <div class="k">Output</div><div class="v">Script + suggested time</div>
+          <div class="k">Saves</div><div class="v">~30 min / day</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="med">
+        <div class="sk-id">SKILL · 11</div>
+        <div class="tier">Mid</div>
+        <h4>Demand Letter &amp; Case File Builder</h4>
+        <p class="desc">For 8–14 day arrears: fills the demand letter. For PAR 90: compiles the full legal pack (contract, statement, enforcement log, demand evidence, guarantor docs) ready for external counsel.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Full rider record</span></div>
+          <div class="k">Output</div><div class="v">Letter / case file</div>
+          <div class="k">Saves</div><div class="v">~2 hr / case</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="med">
+        <div class="sk-id">SKILL · 12</div>
+        <div class="tier">Mid</div>
+        <h4>Weekly Collections Report Drafter</h4>
+        <p class="desc">Monday's flagship management doc: exec summary, all 9 KPIs vs target, ageing buckets vs prior week, top-20 watch list, operational actions, channel mix, forward look, decisions required.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Week ledger</span><span class="chip" data-sys="zoho"><span class="cdot"></span>Invoiced</span></div>
+          <div class="k">Output</div><div class="v">PDF + deck</div>
+          <div class="k">Saves</div><div class="v">~4 hr / week</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="med">
+        <div class="sk-id">SKILL · 13</div>
+        <div class="tier">Mid</div>
+        <h4>Agency Scorecard Generator</h4>
+        <p class="desc">Per-agency (Horta / TSA) weekly scorecard on their assigned book: collection rate, PAR 7 / 30, right-party contact, PTP-kept %, field visit SLA, enforcement support. Drives Tuesday 10:00 meeting.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="agency"><span class="cdot"></span>Portal activity</span><span class="chip" data-sys="wahu"><span class="cdot"></span>Assigned book</span></div>
+          <div class="k">Output</div><div class="v">Two scorecards</div>
+          <div class="k">Saves</div><div class="v">~2 hr / week</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="low">
+        <div class="sk-id">SKILL · 14</div>
+        <div class="tier">Low</div>
+        <h4>Neighbourhood → Zone Classifier</h4>
+        <p class="desc">At rider sign-up, matches the captured address to the West (Horta, 23) or East (TSA, 34) neighbourhood list, applying the Nsawam–Nkrumah–Graphic corridor rule on ambiguous addresses.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Sign-up address</span></div>
+          <div class="k">Output</div><div class="v">Agency tag</div>
+          <div class="k">Saves</div><div class="v">Removes manual route</div>
+        </div>
+      </div>
+
+      <div class="skill" data-tier="low">
+        <div class="sk-id">SKILL · 15</div>
+        <div class="tier">Low</div>
+        <h4>Asset Condition Report Capture</h4>
+        <p class="desc">After repossession: turns the fleet manager's photos + voice notes into a structured condition report against the bike's deployment baseline. Damage quantified, re-deployment decision suggested.</p>
+        <div class="kvs">
+          <div class="k">Inputs</div><div class="v"><span class="chip" data-sys="wahu"><span class="cdot"></span>Baseline photos</span></div>
+          <div class="k">Output</div><div class="v">Condition PDF</div>
+          <div class="k">Saves</div><div class="v">~30 min / event</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== SECTION 5: FOLDERS PANEL -->
+  <section>
+    <div class="section-head">
+      <span class="ix">05</span>
+      <h2>Where the details live — a folder map for the Claude builds</h2>
+      <div class="h-note">Every skill above needs grounded access. This is the map of "what to point Claude at."</div>
+    </div>
+
+    <div class="folders">
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: #16140f"></span><span class="fn">WAHU OS</span></div>
+        <h5>System of record</h5>
+        <p class="p">Rider master, contract ledger, GPS, behavioural flags, enforcement log.</p>
+        <ul>
+          <li>/Riders/{rider_id}/profile</li>
+          <li>/Riders/{rider_id}/ledger</li>
+          <li>/Riders/{rider_id}/flags</li>
+          <li>/Bikes/{imei}/gps_history</li>
+          <li>/Reports/Hero_Payments_{date}.csv</li>
+          <li>/Enforcement/{rider_id}/log</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.55 0.10 195)"></span><span class="fn">ZOHO BILLING</span></div>
+        <h5>Invoices &amp; postings</h5>
+        <p class="p">Monday-morning batch issues every weekly invoice. Manual payment postings until the API ships.</p>
+        <ul>
+          <li>/Invoices/{rider_id}/INV-{n}.pdf  (1–70)</li>
+          <li>/Customers/{rider_id}/payments</li>
+          <li>/Batches/Monday_{date}_run</li>
+          <li>/Audit/postings_{date}</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.65 0.18 50)"></span><span class="fn">MTN MERCHANT</span></div>
+        <h5>0598953614</h5>
+        <p class="p">Real-time inbound MoMo transactions. Daily CSV export.</p>
+        <ul>
+          <li>/Exports/MTN_{yyyy-mm-dd}.csv</li>
+          <li>cols: txn_id, msisdn, amount, ref, ts</li>
+          <li>access: 2 named staff, no shared logins</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.55 0.18 25)"></span><span class="fn">VODAFONE MERCHANT</span></div>
+        <h5>0200447867</h5>
+        <p class="p">Real-time inbound MoMo transactions. Daily CSV export. Also the wallet Hero App settles into.</p>
+        <ul>
+          <li>/Exports/Voda_{yyyy-mm-dd}.csv</li>
+          <li>cols: txn_id, msisdn, amount, ref, ts</li>
+          <li>access: 2 named staff, no shared logins</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.55 0.13 145)"></span><span class="fn">HERO APP</span></div>
+        <h5>Pre-tagged payments</h5>
+        <p class="p">Rider pays inside the app; the resulting transaction is already linked to the rider ID — no reconciliation needed, only verification.</p>
+        <ul>
+          <li>WahuOS &gt; /Reports/Hero_{date}.csv</li>
+          <li>cols: rider_id, amount, ref, ts</li>
+          <li>KPI: % share of all rider cash</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.55 0.10 290)"></span><span class="fn">AGENCY PORTAL</span></div>
+        <h5>Horta &amp; TSA, read-mostly</h5>
+        <p class="p">Each agency sees only its assigned book: riders, bikes, GPS, ledger summary, flag status. Write access limited to visit notes + PTP logs.</p>
+        <ul>
+          <li>/Agency/{horta|tsa}/Riders</li>
+          <li>/Agency/{horta|tsa}/Bikes_map</li>
+          <li>/Agency/{horta|tsa}/VisitLog</li>
+          <li>quarterly access review</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.62 0.15 55)"></span><span class="fn">FINANCE WORKBOOKS</span></div>
+        <h5>Recon archive (7 yr)</h5>
+        <p class="p">Daily recon workbooks, signed by both officers. MoMo Suspense GL. Write-off register.</p>
+        <ul>
+          <li>/Recon/Daily/{yyyy-mm-dd}.xlsx</li>
+          <li>/Recon/Suspense_GL.xlsx</li>
+          <li>/Recon/WriteOff_Register.xlsx</li>
+          <li>/Recon/Variance_log.xlsx</li>
+        </ul>
+      </div>
+
+      <div class="folder">
+        <div class="fh"><span class="fdot" style="background: oklch(0.52 0.14 264)"></span><span class="fn">REPORTS &amp; DECKS</span></div>
+        <h5>Outputs (target folder)</h5>
+        <p class="p">Where Claude drops its drafts. Daily PDF by 14:00. Weekly PDF every Monday. Statements every Sunday evening.</p>
+        <ul>
+          <li>/Reports/Daily_Recon/{date}.pdf</li>
+          <li>/Reports/Weekly_Collections/{wk}.pdf</li>
+          <li>/Statements/{rider_id}/{wk}.pdf</li>
+          <li>/Legal/CaseFiles/{rider_id}/</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="footer">
+    <div class="l">Wahu Mobility &middot; Collections &amp; Credit Risk &middot; Process Map v1.0</div>
+    <div class="r">
+      <span>15 Claude skills mapped</span>
+      <span>~3.5 hr / day operational time saved</span>
+      <span>Tier 1 build: skills 01–08</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Wahu Collections — Process Deck v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="deck-stage.js"></script>
+<style>
+  :root {
+    --bg: #f6f3e9;
+    --paper: #faf7ed;
+    --ink: #0a0a08;
+    --ink-2: #2a2a26;
+    --muted: #76716a;
+    --line: #d4ccba;
+    --line-soft: #e2dbc8;
+    --lime: #c8e840;
+    --lime-2: #d4ec5b;
+    --slot: #0c2419;
+    --slot-2: #133328;
+    --slot-ink: #e7f3c4;
+    --red: oklch(0.55 0.18 25);
+    --amber: oklch(0.62 0.15 55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0a0a08; }
+
+  /* Slide canvas */
+  deck-stage section {
+    width: 1920px; height: 1080px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
+    font-size: 18px;
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow: hidden;
+    padding: 64px 80px;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  .num  { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+
+  /* ============================================================ SLIDE CHROME */
+  .chrome {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 28px;
+  }
+  .brand {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 22px; font-weight: 600; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .brand .bdot { width: 10px; height: 10px; background: var(--lime); border-radius: 2px; }
+  .brand b { font-weight: 600; }
+  .page-tag {
+    background: var(--lime); color: var(--ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14px; font-weight: 600;
+    padding: 8px 14px; border-radius: 4px;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+    text-align: right;
+  }
+
+  /* Eyebrow */
+  .eyebrow {
+    display: grid; grid-template-columns: 32px auto; gap: 16px; align-items: center;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 18px;
+  }
+  .eyebrow .bar { width: 32px; height: 4px; background: var(--lime); }
+  .eyebrow span b { color: var(--ink); font-weight: 600; }
+
+  .h1 {
+    font-size: 84px; line-height: 0.98; letter-spacing: -0.025em;
+    font-weight: 700; margin: 0 0 50px; max-width: 1500px;
+  }
+  .h1 em { font-style: normal; color: var(--ink-2); font-weight: 700; }
+  .h1 .acc { background: linear-gradient(180deg, transparent 60%, var(--lime) 60% 92%, transparent 92%); padding: 0 2px; }
+
+  .h2 {
+    font-size: 56px; line-height: 1.02; letter-spacing: -0.02em;
+    font-weight: 700; margin: 0 0 36px;
+  }
+
+  /* ============================================================ PROCESS FLOW */
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 24px;
+    position: relative;
+  }
+  .col-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 8px; border-bottom: 1px solid var(--ink);
+    margin-bottom: 14px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .col-head .l {
+    font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .col-head .l b { color: var(--ink); font-weight: 600; }
+  .col-head .r {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .col { display: flex; flex-direction: column; gap: 11px; position: relative; }
+
+  /* Card variants */
+  .card {
+    border-radius: 9px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 3px;
+    font-size: 15px;
+  }
+  .card .t { font-weight: 600; font-size: 16px; letter-spacing: -0.005em; line-height: 1.2; }
+  .card .d { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; letter-spacing: 0; color: var(--ink-2); line-height: 1.4; margin-top: 2px; }
+  .card .pill {
+    margin-top: 6px; align-self: flex-start;
+    background: var(--ink); color: var(--paper);
+    padding: 2px 7px; border-radius: 3px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.1em;
+  }
+  .card.input  { background: #efe9d6; border: 1px solid var(--line); }
+  .card.skill  { background: var(--slot); color: var(--paper); }
+  .card.skill .t { color: var(--lime); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; font-size: 18px; letter-spacing: -0.01em; }
+  .card.skill .d { color: rgba(231, 243, 196, 0.78); font-size: 13px; }
+  .card.tracker { background: var(--lime); color: var(--ink); }
+  .card.tracker .t { font-weight: 600; }
+  .card.tracker .d { color: var(--ink-2); }
+  .card.tracker .pill { background: var(--ink); color: var(--lime); }
+  .card.tracker.write .pill { background: var(--slot); color: var(--lime); }
+  .card.output { background: var(--ink); color: var(--paper); }
+  .card.output .t { color: #fff; }
+  .card.output .d { color: rgba(255,255,255,0.7); }
+  .card.review { background: #efe9d6; border: 1px solid var(--line); }
+
+  /* connector arrows between columns */
+  .col + .col::before {
+    content: "→";
+    position: absolute; left: -28px; top: 60px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--muted); font-size: 22px; line-height: 1;
+  }
+
+  /* ============================================================ FOOTER CALLOUT */
+  .callout {
+    position: absolute; left: 80px; right: 80px; bottom: 52px;
+    padding: 14px 20px;
+    border-left: 4px solid var(--lime);
+    font-size: 15px; color: var(--ink-2); line-height: 1.5;
+    background: rgba(255,255,255,0.5);
+  }
+  .callout b { color: var(--ink); font-weight: 600; }
+
+  /* slide footer page number */
+  .pn {
+    position: absolute; left: 80px; bottom: 28px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 0.1em; color: var(--muted);
+  }
+  .pn-r {
+    position: absolute; right: 80px; bottom: 28px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 0.1em; color: var(--muted);
+  }
+
+  /* ============================================================ TITLE SLIDE */
+  .title-slide { padding: 80px; }
+  .title-slide .h0 {
+    font-size: 120px; line-height: 0.95; letter-spacing: -0.035em;
+    font-weight: 700; margin: 0 0 32px; max-width: 1620px;
+  }
+  .title-slide .h0 .acc {
+    background: linear-gradient(180deg, transparent 62%, var(--lime) 62% 92%, transparent 92%); padding: 0 4px;
+  }
+  .title-slide .sub {
+    font-size: 28px; max-width: 1100px; line-height: 1.35; color: var(--ink-2);
+    font-weight: 400; margin-bottom: 80px;
+  }
+  .title-slide .meta-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border-top: 1px solid var(--ink); padding-top: 28px;
+  }
+  .title-slide .meta-grid > div { padding-right: 24px; border-right: 1px solid var(--line); }
+  .title-slide .meta-grid > div:last-child { border-right: none; }
+  .title-slide .meta-grid > div + div { padding-left: 24px; }
+  .title-slide .meta-grid .k {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .title-slide .meta-grid .v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title-slide .meta-grid .vsub { font-size: 14px; color: var(--muted); margin-top: 6px; font-family: "IBM Plex Mono", monospace; }
+
+  .agenda {
+    display: grid; grid-template-columns: 60px 1fr;
+    row-gap: 22px; column-gap: 22px;
+    margin-top: 56px;
+  }
+  .agenda .ix { font-family: "IBM Plex Mono", monospace; font-size: 18px; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; padding-top: 8px; }
+  .agenda .t { font-size: 28px; font-weight: 500; letter-spacing: -0.015em; line-height: 1.2; }
+  .agenda .t b { background: linear-gradient(180deg, transparent 60%, var(--lime) 60% 92%, transparent 92%); padding: 0 2px; font-weight: 500; }
+
+  /* ============================================================ REFRAME SLIDE */
+  .reframe {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+    margin-top: 16px;
+  }
+  .fleet {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 32px 36px;
+    position: relative;
+  }
+  .fleet .ftag {
+    position: absolute; top: 24px; right: 24px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    background: var(--ink); color: var(--paper); padding: 4px 10px; border-radius: 3px;
+    letter-spacing: 0.1em;
+  }
+  .fleet h3 { margin: 0 0 6px; font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
+  .fleet .who { font-size: 16px; color: var(--muted); font-family: "IBM Plex Mono", monospace; margin-bottom: 22px; letter-spacing: 0.04em; }
+  .stage-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .stage {
+    border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px;
+    background: #fffdf6;
+  }
+  .stage.active { background: var(--lime); border-color: var(--lime); }
+  .stage.recovery { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .stage .h { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .stage.active .h { color: var(--slot); }
+  .stage.recovery .h { color: var(--lime); }
+  .stage .title { font-size: 22px; font-weight: 600; letter-spacing: -0.005em; line-height: 1.15; margin-bottom: 10px; }
+  .stage .meta { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-2); }
+  .stage.recovery .meta { color: rgba(231,243,196,0.7); }
+  .stage ul { margin: 10px 0 0; padding-left: 16px; font-size: 14px; line-height: 1.5; }
+  .stage.recovery ul { color: rgba(255,255,255,0.78); }
+
+  /* The combined portfolio table */
+  .ptable {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    margin-top: 30px; overflow: hidden;
+  }
+  .ptable table { width: 100%; border-collapse: collapse; }
+  .ptable th, .ptable td {
+    padding: 14px 20px; text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+    border-bottom: 1px solid var(--line-soft); font-size: 16px;
+  }
+  .ptable th:first-child, .ptable td:first-child { text-align: left; font-family: "Helvetica Neue", sans-serif; }
+  .ptable thead th {
+    font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); padding-top: 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--ink);
+    background: #fffdf6;
+  }
+  .ptable thead th:last-child { background: var(--lime); color: var(--ink); }
+  .ptable tbody tr.tot td { background: #fffdf6; font-weight: 600; }
+  .ptable tbody tr.tot td:last-child { background: color-mix(in oklch, var(--lime) 70%, white); }
+  .ptable tbody td:last-child { background: color-mix(in oklch, var(--lime) 25%, white); font-weight: 600; }
+  .ptable .label-sub { color: var(--muted); font-size: 13px; padding-left: 26px; font-family: "Helvetica Neue", sans-serif; }
+  .ptable .sect-row td { background: var(--ink); color: var(--paper); font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ptable .sect-row td:last-child { background: var(--ink); color: var(--paper); }
+
+  /* Big stat columns */
+  .biggrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; margin-top: 20px; }
+  .bigstat { padding-right: 24px; border-right: 1px solid var(--line); }
+  .bigstat:last-child { border-right: none; }
+  .bigstat .k { font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+  .bigstat .v { font-size: 56px; font-weight: 700; letter-spacing: -0.02em; line-height: 0.95; }
+  .bigstat .sub { margin-top: 10px; color: var(--ink-2); font-size: 14px; font-family: "IBM Plex Mono", monospace; }
+
+  /* Completeness diagram (3-way recon) */
+  .threeway {
+    display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 24px;
+    margin-top: 12px;
+    align-items: stretch;
+  }
+  .source-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 24px 26px;
+  }
+  .source-card h4 {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.12em;
+    color: var(--muted); margin: 0 0 8px; text-transform: uppercase;
+  }
+  .source-card h3 { margin: 0 0 12px; font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .source-card .meta { font-family: "IBM Plex Mono", monospace; font-size: 14px; color: var(--ink-2); margin-bottom: 14px; }
+  .source-card ul { margin: 0; padding-left: 18px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+  .source-card.truth { background: var(--ink); color: var(--paper); border-color: var(--ink); position: relative; }
+  .source-card.truth h4 { color: var(--lime); }
+  .source-card.truth ul { color: rgba(255,255,255,0.78); }
+  .source-card.truth::after {
+    content: "SOURCE OF TRUTH";
+    position: absolute; bottom: 18px; right: 18px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em;
+    background: var(--lime); color: var(--ink); padding: 4px 10px; border-radius: 3px;
+  }
+
+  .mismatch-row {
+    margin-top: 24px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  .mismatch {
+    background: var(--lime); border-radius: 10px; padding: 18px 20px;
+    border: 1px solid color-mix(in oklch, var(--lime) 70%, black);
+  }
+  .mismatch .h { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--slot); margin-bottom: 8px; text-transform: uppercase; }
+  .mismatch .t { font-size: 18px; font-weight: 600; line-height: 1.2; margin-bottom: 6px; }
+  .mismatch .d { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+  .mismatch.alert { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .mismatch.alert .h { color: var(--lime); }
+  .mismatch.alert .d { color: rgba(255,255,255,0.7); }
+
+  /* Report mock */
+  .repmock {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 28px 32px;
+    margin-top: 8px;
+  }
+  .rep-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 16px; border-bottom: 1px solid var(--ink);
+  }
+  .rep-head .l h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.14em; font-family: "IBM Plex Mono", monospace; color: var(--muted); text-transform: uppercase; }
+  .rep-head .l h3 { margin: 0; font-size: 30px; letter-spacing: -0.01em; font-weight: 700; }
+  .rep-head .r { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--muted); text-align: right; }
+  .rep-head .r .pill { display: inline-block; background: var(--lime); color: var(--ink); padding: 4px 10px; border-radius: 3px; margin-top: 6px; }
+
+  /* Suspense ageing strip */
+  .ageing {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    margin-top: 14px;
+    border-radius: 8px; overflow: hidden;
+  }
+  .agebox {
+    padding: 14px 18px;
+    background: var(--paper); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .agebox:last-child { border-right: none; }
+  .agebox .lbl { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; }
+  .agebox .val { font-family: "IBM Plex Mono", monospace; font-size: 22px; font-weight: 600; color: var(--ink); }
+  .agebox .act { font-size: 13px; color: var(--ink-2); font-family: "IBM Plex Mono", monospace; }
+  .agebox.warn { background: color-mix(in oklch, var(--amber) 14%, white); }
+  .agebox.escal { background: var(--ink); color: var(--paper); }
+  .agebox.escal .lbl { color: var(--lime); }
+  .agebox.escal .val { color: #fff; }
+  .agebox.escal .act { color: rgba(255,255,255,0.7); }
+
+  /* Skills final slide */
+  .skills-final { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .skill-mini {
+    background: var(--slot); color: var(--paper); border-radius: 10px;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
+    min-height: 168px;
+  }
+  .skill-mini .sid {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--lime);
+  }
+  .skill-mini .sn {
+    font-family: "IBM Plex Mono", monospace; font-size: 16px; color: var(--lime); font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .skill-mini .sd { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.4; }
+  .skill-mini .ss {
+    margin-top: auto;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: rgba(255,255,255,0.55); letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .skill-mini.new { background: var(--lime); color: var(--ink); }
+  .skill-mini.new .sid { color: var(--slot); }
+  .skill-mini.new .sn { color: var(--slot); }
+  .skill-mini.new .sd { color: var(--ink-2); }
+  .skill-mini.new .ss { color: var(--slot); }
+
+  /* Fleet-pipe (slide 5 top strip) */
+  .fleet-pipe {
+    display: grid;
+    grid-template-columns: 1fr 0.32fr 1fr;
+    gap: 18px;
+    margin: 4px 0 22px;
+    align-items: stretch;
+  }
+  .fp-cell {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 22px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .fp-cell.truth { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .fp-cell.truth::after {
+    content: "SOURCE OF TRUTH"; position: absolute; bottom: 14px; right: 18px;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    background: var(--lime); color: var(--ink); padding: 3px 8px; border-radius: 3px;
+  }
+  .fp-cell .lbl { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .fp-cell.truth .lbl { color: var(--lime); }
+  .fp-cell .name { font-size: 26px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.05; }
+  .fp-cell .count { font-family: "IBM Plex Mono", monospace; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; margin-top: 2px; }
+  .fp-cell .desc { font-size: 13px; color: var(--ink-2); line-height: 1.45; margin-top: 2px; }
+  .fp-cell.truth .desc { color: rgba(255,255,255,0.78); }
+  .fp-skill {
+    background: var(--lime); border-radius: 12px; padding: 18px 16px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; gap: 6px;
+  }
+  .fp-skill .arr { font-family: "IBM Plex Mono", monospace; font-size: 36px; color: var(--slot); line-height: 1; }
+  .fp-skill .nm { font-family: "IBM Plex Mono", monospace; font-size: 15px; color: var(--slot); font-weight: 600; }
+  .fp-skill .nt { font-size: 11px; color: var(--ink-2); line-height: 1.4; font-family: "IBM Plex Mono", monospace; }
+  .fp-out { display: grid; grid-template-rows: 1fr 1fr; gap: 10px; }
+  .fp-fleet {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 18px;
+    display: grid; grid-template-columns: 110px 1fr auto; gap: 14px; align-items: center;
+  }
+  .fp-fleet .ftag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 3px;
+    letter-spacing: 0.08em; text-align: center;
+  }
+  .fp-fleet .nm { font-size: 17px; font-weight: 600; letter-spacing: -0.005em; }
+  .fp-fleet .nm small { display: block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 2px; letter-spacing: 0.04em; }
+  .fp-fleet .ct { font-family: "IBM Plex Mono", monospace; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+
+  /* Compact three-way for slide 5 */
+  .threeway.compact .source-card { padding: 18px 20px; }
+  .threeway.compact .source-card h3 { font-size: 22px; margin-bottom: 8px; }
+  .threeway.compact .source-card .meta { margin-bottom: 8px; font-size: 13px; }
+  .threeway.compact .source-card ul { font-size: 13px; line-height: 1.45; }
+  .threeway.compact .source-card.truth::after { font-size: 10px; bottom: 12px; right: 14px; padding: 3px 8px; }
+
+  /* Skills section header (slide 11) */
+  .skill-section {
+    display: flex; align-items: center; gap: 14px;
+    margin: 8px 0 14px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  }
+  .skill-section .sbar { width: 28px; height: 4px; background: var(--lime); }
+  .skill-section .slbl {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+  }
+  .skill-section .slbl b { color: var(--ink); font-weight: 600; }
+  .skill-section .scount {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    color: var(--muted); letter-spacing: 0.06em;
+  }
+  .skill-section + .skills-grid { margin-bottom: 18px; }
+  .skills-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+  .skills-grid.boltfood { grid-template-columns: repeat(4, 1fr); }
+
+  /* Twin portfolio cards (slide 8) */
+  .twin-port {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    margin-top: 8px;
+  }
+  .port-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 24px 26px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .port-card .pc-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--ink);
+  }
+  .port-card h3 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.05; }
+  .port-card .who { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); margin-top: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .port-card .ptag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    background: var(--ink); color: var(--paper); padding: 4px 10px; border-radius: 3px;
+    letter-spacing: 0.08em; white-space: nowrap;
+  }
+  .port-card table { width: 100%; border-collapse: collapse; }
+  .port-card th, .port-card td {
+    padding: 9px 0;
+    font-family: "IBM Plex Mono", monospace; font-size: 14px;
+    text-align: right; border-bottom: 1px solid var(--line-soft);
+  }
+  .port-card th:first-child, .port-card td:first-child { text-align: left; font-family: "Helvetica Neue", sans-serif; }
+  .port-card thead th { font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; padding-top: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
+  .port-card .sect-row td { background: transparent; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding-top: 14px; border-bottom: none; padding-bottom: 4px; }
+  .port-card tbody tr.tot td { font-weight: 600; }
+  .port-card tbody tr.tot.lime td { background: color-mix(in oklch, var(--lime) 35%, white); padding: 11px 12px; }
+
+  /* Tier grid (slide 12) */
+  .tier-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;
+    margin-top: 4px;
+  }
+  .tier {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px 20px; display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .tier .th {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.1;
+  }
+  .tier .ts {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+    letter-spacing: 0.02em; line-height: 1.5; margin-bottom: 4px;
+  }
+  .tier ul {
+    margin: 6px 0 0; padding-left: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .tier ul li {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    color: var(--ink-2); padding-left: 22px; position: relative;
+    line-height: 1.4;
+  }
+  .tier ul li b { color: var(--ink); font-weight: 600; }
+  .tier ul li::before {
+    content: ""; position: absolute; left: 0; top: 8px;
+    width: 12px; height: 1px; background: var(--ink);
+  }
+  .tier.tier-now { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .tier.tier-now .ts { color: var(--lime); }
+  .tier.tier-now ul li { color: rgba(255,255,255,0.85); }
+  .tier.tier-now ul li b { color: var(--lime); }
+  .tier.tier-now ul li::before { background: var(--lime); }
+  .tier.tier-now::after {
+    content: "BUILD NOW"; position: absolute; top: 16px; right: 16px;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    background: var(--lime); color: var(--ink); padding: 3px 8px; border-radius: 3px;
+  }
+  .tier.tier-next { background: var(--lime); border-color: var(--lime); color: var(--ink); }
+  .tier.tier-next .ts { color: var(--slot); }
+  .tier.tier-next ul li { color: var(--ink-2); }
+  .tier.tier-next ul li b { color: var(--slot); }
+  .tier.tier-next ul li::before { background: var(--slot); }
+
+</style>
+</head>
+<body>
+
+<deck-stage aspect="16/9">
+
+  <!-- ============================================== SLIDE 1 — TITLE -->
+  <section class="title-slide" data-screen-label="01 Title">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">COLLECTIONS v2 ·<br/>RESTRUCTURED REPORTING</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS DECK</b> &middot; Collections &amp; Credit Risk</span></div>
+    <h1 class="h0">Two fleets. Two reports.<br/><span class="acc">One portfolio.</span></h1>
+    <div class="sub">
+      The collections process restructured around the four questions that matter:
+      where do <b>unreconciled payments</b> go, how do we prove every <b>active bike is being billed</b>,
+      how do we report on <b>TSA-owned</b> vs <b>Wahu-owned</b> fleet separately, and how do we keep
+      <b>active billing</b> distinct from <b>aged recovery</b> without losing the combined portfolio view.
+    </div>
+
+    <div class="agenda">
+      <div class="ix">01</div><div class="t">The reframe — <b>fleet × stage</b> matrix and what every report rolls into</div>
+      <div class="ix">02</div><div class="t">Daily reconciliation lifecycle — <b>match cash to riders</b> by 12:00 GMT</div>
+      <div class="ix">03</div><div class="t">Suspense account flow — <b>held until matched to a rider</b>, no refunds</div>
+      <div class="ix">04</div><div class="t">Completeness &amp; existence — <b>bike-first fleet split</b> from Wahu OS</div>
+      <div class="ix">05</div><div class="t">Collections Report — <b>active billing</b>, by fleet</div>
+      <div class="ix">06</div><div class="t">Recovery Report — <b>aged debts from churned riders</b>, by fleet</div>
+      <div class="ix">07</div><div class="t">Twin Portfolio Report — <b>one per fleet, never merged</b></div>
+      <div class="ix">08</div><div class="t">BoltFood Reseller Payouts — <b>Monday-morning weekly lifecycle</b></div>
+      <div class="ix">09</div><div class="t">BoltFood post-payout accounting — <b>rider Zoho, Wahu P&amp;L, TSA Payable</b></div>
+      <div class="ix">10</div><div class="t">Claude skills · Collections — <b>16 skills</b></div>
+      <div class="ix">11</div><div class="t">Claude skills · BoltFood + build sequence — <b>what ships first</b></div>
+    </div>
+
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 01 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 2 — THE REFRAME -->
+  <section data-screen-label="02 Reframe">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">REFRAME ·<br/>P 02</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS RESTRUCTURE</b> &middot; the new reporting axes</span></div>
+    <h1 class="h1">Split first by <span class="acc">fleet ownership.</span><br/>Then by <span class="acc">stage.</span></h1>
+
+    <div class="reframe">
+      <div class="fleet">
+        <span class="ftag">WAHU OWNED</span>
+        <h3>Wahu Fleet</h3>
+        <div class="who">Bikes financed on Wahu's balance sheet. Lease-to-own contract sits with Wahu.</div>
+        <div class="stage-row">
+          <div class="stage active">
+            <div class="h">Stage A</div>
+            <div class="title">Active Billing</div>
+            <div class="meta">Riders inside the 70-week contract</div>
+            <ul>
+              <li>Weekly invoices live in Zoho</li>
+              <li>Daily payments expected (₵70)</li>
+              <li>Bike active in Wahu OS</li>
+            </ul>
+          </div>
+          <div class="stage recovery">
+            <div class="h">Stage B</div>
+            <div class="title">In Recovery</div>
+            <div class="meta">Churned / repossessed</div>
+            <ul>
+              <li>Bike returned to fleet yard</li>
+              <li>Residual balance pursued</li>
+              <li>PAR 90 / debt collector / write-off</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="fleet">
+        <span class="ftag">TSA OWNED</span>
+        <h3>TSA Fleet</h3>
+        <div class="who">Bikes financed by TSA. Wahu operates the rider servicing &amp; collections only.</div>
+        <div class="stage-row">
+          <div class="stage active">
+            <div class="h">Stage A</div>
+            <div class="title">Active Billing</div>
+            <div class="meta">Same contract shape, separate book</div>
+            <ul>
+              <li>Invoiced &amp; collected through Wahu</li>
+              <li>Reported separately to TSA</li>
+              <li>Wahu earns a servicing margin</li>
+            </ul>
+          </div>
+          <div class="stage recovery">
+            <div class="h">Stage B</div>
+            <div class="title">In Recovery</div>
+            <div class="meta">Churned / repossessed</div>
+            <ul>
+              <li>TSA bears the credit loss</li>
+              <li>Wahu enforces &amp; recovers</li>
+              <li>Recoveries remitted net of fees</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ptable">
+      <table>
+        <thead>
+          <tr>
+            <th>Reporting axis</th>
+            <th>Wahu Fleet</th>
+            <th>TSA Fleet</th>
+            <th>Combined Portfolio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>A · Collections Report <span class="mono" style="color: var(--muted); font-size: 13px;">(active billing)</span></td><td>✓</td><td>✓</td><td>✓ rolled up</td></tr>
+          <tr><td>B · Recovery Report <span class="mono" style="color: var(--muted); font-size: 13px;">(aged debt, churned riders)</span></td><td>✓</td><td>✓</td><td>✓ rolled up</td></tr>
+          <tr class="tot"><td>Combined Portfolio Report <span class="mono" style="color: var(--muted); font-size: 13px;">(A + B by fleet)</span></td><td>WF total</td><td>TSA total</td><td>Group view</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 02 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 3 — DAILY RECON LIFECYCLE -->
+  <section data-screen-label="03 Daily Reconciliation">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">DAILY LOOP ·<br/>P 03</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS DIAGRAM</b> &middot; daily reconciliation lifecycle</span></div>
+    <h1 class="h1">Daily reconciliation — <span class="acc">match cash to riders</span> by 12:00 GMT.</h1>
+
+    <div class="flow">
+      <div class="col">
+        <div class="col-head"><span class="l"><b>01</b> INPUTS</span><span class="r">DAILY · 09:00</span></div>
+        <div class="card input"><div class="t">MTN merchant CSV</div><div class="d">0598953614 portal · txn / msisdn / amount / ref</div></div>
+        <div class="card input"><div class="t">Vodafone merchant CSV</div><div class="d">0200447867 portal · same columns</div></div>
+        <div class="card input"><div class="t">Hero App ledger</div><div class="d">WahuOS · pre-tagged to rider_id</div></div>
+        <div class="card input"><div class="t">Active bike roster</div><div class="d">WahuOS · who should have paid today</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>02</b> CLAUDE SKILLS</span><span class="r">PROJECT: COLLECTIONS</span></div>
+        <div class="card skill"><div class="t">csv-normalizer</div><div class="d">Three CSVs → one canonical workbook</div></div>
+        <div class="card skill"><div class="t">fuzzy-name-matcher</div><div class="d">Name + MSISDN to rider master</div></div>
+        <div class="card skill"><div class="t">exception-triage</div><div class="d">Classify + propose match w/ confidence</div></div>
+        <div class="card skill"><div class="t">zoho-poster (FIFO)</div><div class="d">Apply payments to oldest open invoice</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>03</b> TRACKER R/W</span><span class="r">WAHU OS · ZOHO</span></div>
+        <div class="card tracker"><div class="t">Rider master + active bikes</div><div class="d">Lookup &amp; tag fleet (WF / TSA)</div><span class="pill">READ</span></div>
+        <div class="card tracker"><div class="t">Open invoices</div><div class="d">Zoho · oldest-first by rider</div><span class="pill">READ</span></div>
+        <div class="card tracker write"><div class="t">Matched payment ledger</div><div class="d">WahuOS · post + source TXN ID</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">Zoho payment record</div><div class="d">Applied to oldest open invoice</div><span class="pill">WRITE</span></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>04</b> OUTPUTS</span><span class="r">CLOSED BY 12:00</span></div>
+        <div class="card output"><div class="t">Daily Recon Workbook</div><div class="d">Signed; archived 7 yr</div></div>
+        <div class="card output"><div class="t">Exception queue</div><div class="d">Items unresolved at noon → suspense</div></div>
+        <div class="card output"><div class="t">Daily Recon Report</div><div class="d">Distributed 14:00 GMT (fleet-split)</div></div>
+        <div class="card output"><div class="t">Risk flag triggers</div><div class="d">Amber / Red into Wahu OS</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>05</b> HUMAN REVIEW</span><span class="r">FINANCE · COLLECTIONS</span></div>
+        <div class="card review"><div class="t">Four-eyes tie-out</div><div class="d">Finance Officer · workbook = Zoho posted</div></div>
+        <div class="card review"><div class="t">Sign-off</div><div class="d">Collections + Finance, before 12:00</div></div>
+        <div class="card review"><div class="t">Escalation</div><div class="d">Variance &gt; ₵500 → Finance lead</div></div>
+        <div class="card review"><div class="t">Risk-flag review</div><div class="d">Officer actions Red flags same-day</div></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>What changes:</b> today three CSVs are merged, re-keyed into Zoho and tied out by hand — the largest operational risk in the workflow. Tomorrow Claude owns ingest → match → Zoho posting → variance investigation, while Finance keeps the four-eyes sign-off. The daily loop closes faster and exceptions <b>route immediately to the suspense flow</b> on the next slide rather than piling up in the workbook.
+    </div>
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 03 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 4 — SUSPENSE FLOW -->
+  <section data-screen-label="04 Suspense Account">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">SUSPENSE ·<br/>P 04</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS DIAGRAM</b> &middot; suspense account resolution</span></div>
+    <h1 class="h1">Suspense account — <span class="acc">held until matched to a rider.</span> No refunds.</h1>
+
+    <div class="flow">
+      <div class="col">
+        <div class="col-head"><span class="l"><b>01</b> INPUTS</span><span class="r">FROM DAILY LOOP</span></div>
+        <div class="card input"><div class="t">Unmatched MoMo lines</div><div class="d">No rider matched at noon close</div></div>
+        <div class="card input"><div class="t">Sender MSISDN</div><div class="d">From merchant portal</div></div>
+        <div class="card input"><div class="t">Rider master (for cross-check)</div><div class="d">WahuOS lookup</div></div>
+        <div class="card input"><div class="t">Suspense GL — prior days</div><div class="d">Items already ageing</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>02</b> CLAUDE SKILLS</span><span class="r">PROJECT: COLLECTIONS</span></div>
+        <div class="card skill"><div class="t">suspense-classifier</div><div class="d">Name-drift / unknown sender / over / under / duplicate</div></div>
+        <div class="card skill"><div class="t">msisdn-resolver</div><div class="d">Cross-checks portal MSISDN to rider history</div></div>
+        <div class="card skill"><div class="t">call-script-drafter</div><div class="d">Drafts the verification SMS or call opener</div></div>
+        <div class="card skill"><div class="t">write-in advisor</div><div class="d">Proposes most likely rider for write-in at T+7d</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>03</b> TRACKER R/W</span><span class="r">SUSPENSE GL</span></div>
+        <div class="card tracker"><div class="t">Suspense GL ageing</div><div class="d">0–48h · 2–7d · 7d+ escalation</div><span class="pill">READ</span></div>
+        <div class="card tracker write"><div class="t">Resolution log</div><div class="d">Outcome, evidence, approver, TXN id</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">Rider write-in posting</div><div class="d">Moves cash from GL to rider ledger</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">Long-stay escalation note</div><div class="d">Items still unresolved &gt; 14d &middot; HoC memo</div><span class="pill">WRITE</span></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>04</b> OUTPUTS</span><span class="r">RESOLVED BY T+7D</span></div>
+        <div class="card output"><div class="t">Verification SMS / call</div><div class="d">Auto-logged outcome on the rider record</div></div>
+        <div class="card output"><div class="t">Write-in to rider</div><div class="d">Sole resolution route &middot; no refunds issued</div></div>
+        <div class="card output"><div class="t">Held in suspense GL</div><div class="d">Stays on the book until matched to a rider</div></div>
+        <div class="card output"><div class="t">Suspense ageing report</div><div class="d">Weekly into the Collections meeting</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>05</b> HUMAN REVIEW</span><span class="r">HEAD OF COLLECTIONS</span></div>
+        <div class="card review"><div class="t">Weekly suspense walk</div><div class="d">Every item &gt; 7 days reviewed by name</div></div>
+        <div class="card review"><div class="t">Write-in approval</div><div class="d">Joint sign-off w/ Finance Officer</div></div>
+        <div class="card review"><div class="t">Trend monitoring</div><div class="d">Suspense ageing vs prior month</div></div>
+        <div class="card review"><div class="t">Audit sample</div><div class="d">25 resolved cases / month</div></div>
+      </div>
+    </div>
+
+    <div class="ageing">
+      <div class="agebox"><span class="lbl">T+0 to 24h</span><span class="val">Auto-attempt</span><span class="act">Claude re-runs match w/ widened tolerance</span></div>
+      <div class="agebox"><span class="lbl">T+24 to 48h</span><span class="val">Reach out</span><span class="act">Call sender from portal MSISDN</span></div>
+      <div class="agebox warn"><span class="lbl">T+2 to 7d</span><span class="val">Investigate</span><span class="act">Collections Officer owns each line</span></div>
+      <div class="agebox escal"><span class="lbl">T+7d</span><span class="val">Escalate</span><span class="act">Head of Collections — weekly walk</span></div>
+      <div class="agebox escal"><span class="lbl">T+14d</span><span class="val">Write-in</span><span class="act">Matched to rider &middot; no refunds issued</span></div>
+    </div>
+
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 04 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 5 — COMPLETENESS & EXISTENCE -->
+  <section data-screen-label="05 Completeness Existence">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">AUDIT ·<br/>P 05</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS DIAGRAM</b> &middot; bike-first fleet split + three-way recon</span></div>
+    <h1 class="h1" style="font-size: 52px; margin-bottom: 24px;">Pull every bike from Wahu OS. <span class="acc">Split by owner.</span> Then reconcile.</h1>
+
+    <div class="fleet-pipe">
+      <div class="fp-cell truth">
+        <div class="lbl">Step 1 · Wahu OS</div>
+        <div class="name">Bike inventory</div>
+        <div class="count">475 bikes</div>
+        <div class="desc">Every IMEI, owner-tagged at procurement and re-affirmed on deployment. The assigned rider sits on the bike record — the bike is the spine of the dataset.</div>
+      </div>
+      <div class="fp-skill">
+        <div class="arr">→</div>
+        <div class="nm">fleet-tagger</div>
+        <div class="nt">Reads owner field<br/>Propagates tag to<br/>assigned rider</div>
+      </div>
+      <div class="fp-out">
+        <div class="fp-fleet">
+          <span class="ftag">WAHU OWNED</span>
+          <div class="nm">Wahu Fleet book<small>Bikes &middot; assigned riders</small></div>
+          <div class="ct">268</div>
+        </div>
+        <div class="fp-fleet">
+          <span class="ftag">TSA OWNED</span>
+          <div class="nm">TSA Fleet book<small>Bikes &middot; assigned riders</small></div>
+          <div class="ct">207</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="threeway compact">
+      <div class="source-card">
+        <h4>Step 2A · Rider master</h4>
+        <h3>Riders &amp; contracts</h3>
+        <div class="meta">WahuOS &middot; filtered by fleet tag</div>
+        <ul>
+          <li>Inherits fleet tag from assigned bike</li>
+          <li>Contract week &amp; status</li>
+          <li>Agency assignment (Horta / TSA)</li>
+        </ul>
+      </div>
+      <div class="source-card truth">
+        <h4>Step 2B · Bike inventory (per fleet)</h4>
+        <h3>Bikes &amp; deployment</h3>
+        <div class="meta">WahuOS &middot; /Bikes/{imei}</div>
+        <ul>
+          <li>Owner: <span class="mono" style="color: var(--lime)">WF</span> or <span class="mono" style="color: var(--lime)">TSA</span> (immutable)</li>
+          <li>Status: Deployed / Immobilised / Yard</li>
+          <li>GPS last-seen, motion within 48h</li>
+        </ul>
+      </div>
+      <div class="source-card">
+        <h4>Step 2C · Billing</h4>
+        <h3>Open invoices</h3>
+        <div class="meta">Zoho &middot; tagged via linked rider</div>
+        <ul>
+          <li>Invoice 1–70 per rider</li>
+          <li>Status (Open / Paid / Cancelled)</li>
+          <li>Linked rider &middot; linked bike IMEI</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mismatch-row">
+      <div class="mismatch alert">
+        <div class="h">Existence failure</div>
+        <div class="t">Invoice live, bike not deployed</div>
+        <div class="d">Zombie invoice — cancel; rider corrected; cash, if any, routes to suspense.</div>
+      </div>
+      <div class="mismatch alert">
+        <div class="h">Completeness failure</div>
+        <div class="t">Bike deployed, no live invoice</div>
+        <div class="d">Revenue leak — invoice raised same day, backdated by deployment date.</div>
+      </div>
+      <div class="mismatch">
+        <div class="h">Orphan rider</div>
+        <div class="t">Rider active, no bike linked</div>
+        <div class="d">Pre-deployment or stale post-repossession status — corrected within 24h.</div>
+      </div>
+      <div class="mismatch">
+        <div class="h">Orphan bike</div>
+        <div class="t">Bike deployed, no rider</div>
+        <div class="d">Onboarding gap — Ops + Collections jointly resolve; status corrected.</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>Why bike-first.</b> The bike inventory in Wahu OS carries the immutable ownership tag (WF / TSA). Every rider in the master <i>inherits</i> the tag from their assigned bike, and every invoice inherits via the rider. Pulling the bike list first — then splitting — means the WF book and the TSA book never bleed into each other, no matter what happens to a rider downstream. Completeness target 100%, existence target 100%, both reported daily.
+    </div>
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 05 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 6 — COLLECTIONS REPORT (ACTIVE) -->
+  <section data-screen-label="06 Collections Report">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">REPORT A ·<br/>P 06</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>REPORT MOCK</b> &middot; collections report (active billing)</span></div>
+    <h1 class="h1">A · Collections Report — <span class="acc">active riders only</span>, split by fleet.</h1>
+
+    <div class="repmock">
+      <div class="rep-head">
+        <div class="l">
+          <h4>Period · Week 18 (12–18 May 2026)</h4>
+          <h3>Collections Report — Active Billing</h3>
+        </div>
+        <div class="r">
+          Excludes churned / repossessed riders<br/>
+          Excludes suspense GL items unresolved<br/>
+          <span class="pill">SOURCE OF TRUTH · WAHU OS</span>
+        </div>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 18px;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase;">Metric</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">Wahu Fleet</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">TSA Fleet</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--ink); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right; background: var(--lime);">Combined</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">Target</th>
+          </tr>
+        </thead>
+        <tbody style="font-family: 'IBM Plex Mono', monospace; font-size: 15px;">
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Active riders</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">230</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">180</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">410</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">—</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Active bikes <span style="color: var(--muted); font-family: 'Helvetica Neue';">(deployed &amp; on-contract)</span></td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">230</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">180</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">410</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">100% billed</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Invoiced (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">96,600</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">75,600</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">172,200</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">—</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Collected (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">93,400</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">72,200</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">165,600</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">—</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-weight: 600;">Collection rate</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-weight: 600;">96.7%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); font-weight: 600;">95.5%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 35%, white); font-weight: 700;">96.2%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">≥ 95%</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">PAR &gt; 7 days (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">14,200</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">11,800</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">26,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">≤ 5%</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Immobilisation queue (count)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">6</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">5</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">11</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">100% SLA</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Hero App share</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">58%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">52%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">55%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">↗ trend</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Completeness <span style="color: var(--muted); font-family: 'Helvetica Neue';">(bikes billed ÷ deployed)</span></td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">100%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">100%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">100%</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">100%</td></tr>
+          <tr><td style="padding: 11px 14px;">Existence <span style="color: var(--muted); font-family: 'Helvetica Neue';">(invoices with deployed bike)</span></td><td style="text-align: right; padding: 11px 14px;">100%</td><td style="text-align: right; padding: 11px 14px;">99.4%</td><td style="text-align: right; padding: 11px 14px; background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">99.8%</td><td style="text-align: right; padding: 11px 14px; color: var(--muted);">100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>What's in.</b> Only riders inside their 70-week contract — invoice live, bike deployed, status Active or Immobilised. <b>What's out.</b> Anyone repossessed, churned, or in recovery — they go to Report B. Suspense items also excluded until resolved. Every row split <b>WF</b> / <b>TSA</b>; the combined column is the lime one.
+    </div>
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 06 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 7 — RECOVERY REPORT (AGED) -->
+  <section data-screen-label="07 Recovery Report">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">REPORT B ·<br/>P 07</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>REPORT MOCK</b> &middot; recovery report (aged debt, churned riders)</span></div>
+    <h1 class="h1">B · Recovery Report — <span class="acc">churned riders only</span>, split by fleet.</h1>
+
+    <div class="repmock">
+      <div class="rep-head">
+        <div class="l">
+          <h4>Period · Month-to-date May 2026</h4>
+          <h3>Recovery Report — Aged Debt</h3>
+        </div>
+        <div class="r">
+          Riders post-repossession or PAR 90<br/>
+          Provisioned + legal + write-off cases<br/>
+          <span class="pill">SOURCE OF TRUTH · WAHU OS</span>
+        </div>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 18px;">
+        <thead>
+          <tr>
+            <th style="text-align: left; padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase;">Metric</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">Wahu Fleet</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">TSA Fleet</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--ink); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right; background: var(--lime);">Combined</th>
+            <th style="padding: 12px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--muted); border-bottom: 1px solid var(--ink); text-transform: uppercase; text-align: right;">Note</th>
+          </tr>
+        </thead>
+        <tbody style="font-family: 'IBM Plex Mono', monospace; font-size: 15px;">
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Churned riders <span style="color: var(--muted); font-family: 'Helvetica Neue';">(post-repossession)</span></td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">38</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">27</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">65</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">cumulative</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Aged book outstanding (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">412,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">298,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">710,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">pre-write-off</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Cases at PAR 90+</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">18</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">12</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">30</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">100% provisioned</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">With external debt collector</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">12</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">9</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">21</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">written off</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">In legal process</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">4</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">2</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">6</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">w/ counsel</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Recoveries this month (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">8,400</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">5,200</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">13,600</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">net of fees</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Write-offs this month (₵)</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">35,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">22,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">57,000</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">HoC+CFO+CEO</td></tr>
+          <tr><td style="padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">Bikes recovered to yard</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">38</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft);">27</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">65</td><td style="text-align: right; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); color: var(--muted);">redeployable</td></tr>
+          <tr><td style="padding: 11px 14px;">Avg recovery per case (₵)</td><td style="text-align: right; padding: 11px 14px;">700</td><td style="text-align: right; padding: 11px 14px;">578</td><td style="text-align: right; padding: 11px 14px; background: color-mix(in oklch, var(--lime) 22%, white); font-weight: 600;">648</td><td style="text-align: right; padding: 11px 14px; color: var(--muted);">trailing 3m</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>What's in.</b> Riders post-repossession or PAR 90 — bike already back in the yard, residual chased in-house, by debt collector, or through legal. <b>What's out.</b> Anyone still on contract — they belong in Report A. <b>Loss ownership: Wahu Fleet rows hit Wahu's P&amp;L; TSA Fleet rows are reported to TSA as the credit-loss owner</b>, with Wahu earning its servicing fee on whatever's recovered.
+    </div>
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 07 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 8 — COMBINED PORTFOLIO -->
+  <section data-screen-label="08 Combined Portfolio">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">PORTFOLIO ·<br/>P 08</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>EXECUTIVE VIEW</b> &middot; one combined portfolio per fleet, side by side</span></div>
+    <h1 class="h1" style="font-size: 52px; margin-bottom: 28px;">Two portfolios. <span class="acc">One per fleet.</span> Never merged.</h1>
+
+    <div class="twin-port">
+      <div class="port-card">
+        <div class="pc-head">
+          <div>
+            <h3>Wahu Fleet Portfolio</h3>
+            <div class="who">A (active billing) + B (recovery)</div>
+          </div>
+          <span class="ptag">WAHU OWNED</span>
+        </div>
+        <table>
+          <thead><tr><th>Metric</th><th>This period</th></tr></thead>
+          <tbody>
+            <tr class="sect-row"><td colspan="2">A · Active Billing</td></tr>
+            <tr><td>Active riders / bikes</td><td>230</td></tr>
+            <tr><td>Receivables outstanding (₵)</td><td>312,000</td></tr>
+            <tr><td>Collection rate (WTD)</td><td>96.7%</td></tr>
+            <tr><td>PAR &gt; 7 days (₵)</td><td>14,200</td></tr>
+
+            <tr class="sect-row"><td colspan="2">B · Recovery (aged debt)</td></tr>
+            <tr><td>Churned riders</td><td>38</td></tr>
+            <tr><td>Aged book pre-write-off (₵)</td><td>412,000</td></tr>
+            <tr><td>Net realisable (₵)</td><td>62,000</td></tr>
+
+            <tr class="sect-row"><td colspan="2">Wahu Fleet · Combined</td></tr>
+            <tr class="tot"><td>Total receivables (₵)</td><td>724,000</td></tr>
+            <tr class="tot"><td>Provisions / write-offs (₵)</td><td>(350,000)</td></tr>
+            <tr class="tot lime"><td>Net exposure (₵)</td><td>374,000</td></tr>
+            <tr class="tot"><td>% in recovery</td><td>14.2%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="port-card">
+        <div class="pc-head">
+          <div>
+            <h3>TSA Fleet Portfolio</h3>
+            <div class="who">A (active billing) + B (recovery)</div>
+          </div>
+          <span class="ptag">TSA OWNED</span>
+        </div>
+        <table>
+          <thead><tr><th>Metric</th><th>This period</th></tr></thead>
+          <tbody>
+            <tr class="sect-row"><td colspan="2">A · Active Billing</td></tr>
+            <tr><td>Active riders / bikes</td><td>180</td></tr>
+            <tr><td>Receivables outstanding (₵)</td><td>248,000</td></tr>
+            <tr><td>Collection rate (WTD)</td><td>95.5%</td></tr>
+            <tr><td>PAR &gt; 7 days (₵)</td><td>11,800</td></tr>
+
+            <tr class="sect-row"><td colspan="2">B · Recovery (aged debt)</td></tr>
+            <tr><td>Churned riders</td><td>27</td></tr>
+            <tr><td>Aged book pre-write-off (₵)</td><td>298,000</td></tr>
+            <tr><td>Net realisable (₵)</td><td>45,000</td></tr>
+
+            <tr class="sect-row"><td colspan="2">TSA Fleet · Combined</td></tr>
+            <tr class="tot"><td>Total receivables (₵)</td><td>546,000</td></tr>
+            <tr class="tot"><td>Provisions / write-offs (₵)</td><td>(253,000)</td></tr>
+            <tr class="tot lime"><td>Net exposure (₵)</td><td>293,000</td></tr>
+            <tr class="tot"><td>% in recovery</td><td>13.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>One combined portfolio per fleet — reported side by side, never merged.</b> Each fleet rolls up its own A (active) + B (recovery) into a single net-exposure number. <b>Wahu Fleet hits Wahu's P&amp;L; TSA Fleet is reported to TSA</b> as the credit-loss owner. The board sees both side by side; TSA receives only the TSA column. Group-level numbers are computed off-page when needed but the operational view is fleet-isolated by default.
+    </div>
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 08 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 9 — BOLTFOOD LIFECYCLE -->
+  <section data-screen-label="09 BoltFood Lifecycle">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">BOLTFOOD ·<br/>P 09</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS 02 · DIAGRAM</b> &middot; BoltFood Reseller weekly payout lifecycle</span></div>
+    <h1 class="h1">Monday morning — <span class="acc">BoltFood payouts</span> done before lunch.</h1>
+
+    <div class="flow">
+      <div class="col">
+        <div class="col-head"><span class="l"><b>01</b> INPUTS</span><span class="r">MON 00:00 → 10:00</span></div>
+        <div class="card input"><div class="t">Bolt MTN Wallet inflow</div><div class="d">00:00 – 03:00 &middot; actual cash from Bolt</div></div>
+        <div class="card input"><div class="t">Reseller report (Elizabeth)</div><div class="d">09:00 – 10:00 &middot; per-rider earnings prior wk</div></div>
+        <div class="card input"><div class="t">Zoho overdue invoices</div><div class="d">Per rider &middot; approved deductions</div></div>
+        <div class="card input"><div class="t">Rider master (WF / TSA)</div><div class="d">Fleet tag for commission split</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>02</b> CLAUDE SKILLS</span><span class="r">PROJECT: BOLTFOOD</span></div>
+        <div class="card skill"><div class="t">bolt-report-ingest</div><div class="d">Parse Elizabeth's file → normalised table</div></div>
+        <div class="card skill"><div class="t">mtn-wallet-tieout</div><div class="d">Report total = MTN Wallet receipt</div></div>
+        <div class="card skill"><div class="t">commission-calc</div><div class="d">Wahu + TSA commission split per rider</div></div>
+        <div class="card skill"><div class="t">overdue-deduction</div><div class="d">Zoho lookup + approved deductions</div></div>
+        <div class="card skill"><div class="t">hubtel-batch-builder</div><div class="d">Per-rider net payout file</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>03</b> TRACKER R/W</span><span class="r">MTN · ZOHO · WAHU OS</span></div>
+        <div class="card tracker"><div class="t">MTN Wallet ledger</div><div class="d">Confirms Bolt inflow before workings</div><span class="pill">READ</span></div>
+        <div class="card tracker"><div class="t">Zoho overdue invoices</div><div class="d">Per-rider arrears, oldest-first</div><span class="pill">READ</span></div>
+        <div class="card tracker write"><div class="t">Payout workings</div><div class="d">Per-rider workbook &middot; signed</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">Approval pack</div><div class="d">One-page summary for Robert</div><span class="pill">WRITE</span></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>04</b> OUTPUTS</span><span class="r">FOR ROBERT</span></div>
+        <div class="card output"><div class="t">Hubtel payout batch</div><div class="d">Per-rider net amount &middot; ready to release</div></div>
+        <div class="card output"><div class="t">Approval pack</div><div class="d">Tie-out + commission + deductions + net</div></div>
+        <div class="card output"><div class="t">Per-rider remittance advice</div><div class="d">SMS / email on disbursement</div></div>
+        <div class="card output"><div class="t">Variance memo</div><div class="d">If tie-out fails, before any payout</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>05</b> HUMAN REVIEW</span><span class="r">FINANCE · ROBERT</span></div>
+        <div class="card review"><div class="t">Finance Officer tie-out</div><div class="d">Workings = MTN Wallet receipt</div></div>
+        <div class="card review"><div class="t">Robert approves batch</div><div class="d">Hubtel released on sign-off</div></div>
+        <div class="card review"><div class="t">Disbursement</div><div class="d">Net amounts hit rider wallets</div></div>
+        <div class="card review"><div class="t">Audit archive</div><div class="d">Workings + pack &middot; 7 yr</div></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>What changes.</b> Today this is a Monday-morning marathon — manual workbook, manual commission split, manual deduction lookup, manual Hubtel batch — against Robert's calendar. Tomorrow Claude does ingest → tie-out → calculate → batch in roughly half an hour; Finance four-eyes the tie-out; Robert approves a one-page pack instead of an Excel. Disbursement is the only step that doesn't change.
+    </div>
+    <div class="pn">WAHU · BOLTFOOD · v2.0</div>
+    <div class="pn-r">P 09 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 10 — BOLTFOOD ACCOUNTING -->
+  <section data-screen-label="10 BoltFood Accounting">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">BOLTFOOD ·<br/>P 10</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>PROCESS 02 · DIAGRAM</b> &middot; BoltFood post-payout accounting &amp; TSA accrual</span></div>
+    <h1 class="h1">After payout — <span class="acc">three places</span> the money has to land.</h1>
+
+    <div class="flow">
+      <div class="col">
+        <div class="col-head"><span class="l"><b>01</b> INPUTS</span><span class="r">FROM SLIDE 09</span></div>
+        <div class="card input"><div class="t">Disbursement confirmation</div><div class="d">Hubtel &middot; per-rider net released</div></div>
+        <div class="card input"><div class="t">Withheld deductions</div><div class="d">Per rider &middot; from this week's workings</div></div>
+        <div class="card input"><div class="t">Wahu commission total</div><div class="d">Aggregate cut &middot; this week</div></div>
+        <div class="card input"><div class="t">TSA commission total</div><div class="d">Held for month-end remittance</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>02</b> CLAUDE SKILLS</span><span class="r">PROJECT: BOLTFOOD</span></div>
+        <div class="card skill"><div class="t">zoho-deduction-poster</div><div class="d">Withheld → oldest open overdue invoice</div></div>
+        <div class="card skill"><div class="t">fleet-revenue-poster</div><div class="d">Wahu cut → Fleet Revenue · BoltFood</div></div>
+        <div class="card skill"><div class="t">tsa-commission-accruer</div><div class="d">Builds TSA Payable week by week</div></div>
+        <div class="card skill"><div class="t">tsa-month-end-remitter</div><div class="d">Last working day &middot; TSA payout + stmt</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>03</b> TRACKER R/W</span><span class="r">ZOHO · GL</span></div>
+        <div class="card tracker write"><div class="t">Zoho rider payment</div><div class="d">Closes overdue subscription invoice</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">GL · Fleet Revenue · BoltFood</div><div class="d">Wahu's commission recognised weekly</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">GL · Cash · MTN Wallet</div><div class="d">Cash leg of the entry</div><span class="pill">WRITE</span></div>
+        <div class="card tracker write"><div class="t">GL · TSA Payable</div><div class="d">Accrued; cleared at month-end</div><span class="pill">WRITE</span></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>04</b> OUTPUTS</span><span class="r">WEEKLY + MONTHLY</span></div>
+        <div class="card output"><div class="t">Updated rider Zoho ledgers</div><div class="d">Overdue invoices closed by deductions</div></div>
+        <div class="card output"><div class="t">Fleet Revenue P&amp;L line</div><div class="d">BoltFood revenue · this week</div></div>
+        <div class="card output"><div class="t">TSA Payable balance</div><div class="d">Visible in real time &middot; accrues weekly</div></div>
+        <div class="card output"><div class="t">Month-end TSA remittance</div><div class="d">Hubtel batch + statement to TSA</div></div>
+      </div>
+
+      <div class="col">
+        <div class="col-head"><span class="l"><b>05</b> HUMAN REVIEW</span><span class="r">FINANCE · HOC · CFO</span></div>
+        <div class="card review"><div class="t">Four-eyes commission split</div><div class="d">Finance Officer &middot; weekly</div></div>
+        <div class="card review"><div class="t">Deduction threshold sign-off</div><div class="d">Head of Collections &middot; over-threshold cases</div></div>
+        <div class="card review"><div class="t">Month-end TSA approval</div><div class="d">CFO signs the remittance batch</div></div>
+        <div class="card review"><div class="t">Audit archive</div><div class="d">Workings + GL postings &middot; 7 yr</div></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <b>Three landing zones, one weekly close.</b> (1) <b>Rider Zoho</b> — each withheld amount closes that rider's oldest overdue invoice, feeding straight into the Collections Report. (2) <b>Wahu P&amp;L</b> — Wahu's commission booked as Fleet Revenue under BoltFood, with the cash leg in MTN Wallet. (3) <b>TSA Payable</b> — TSA's commission accrues each week and settles end of month. Every leg is one Claude skill writing one GL entry; the Finance Officer signs the weekly close.
+    </div>
+    <div class="pn">WAHU · BOLTFOOD · v2.0</div>
+    <div class="pn-r">P 10 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 11 — SKILLS · COLLECTIONS -->
+  <section data-screen-label="11 Skills Collections">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">CLAUDE SKILLS ·<br/>P 11</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>BUILD PLAN · PROCESS 01</b> &middot; Collections reconciliation skills</span></div>
+    <h1 class="h1" style="font-size: 56px; margin-bottom: 28px;">Collections — <span class="acc">sixteen skills</span> that unlock the daily loop.</h1>
+
+    <div class="skill-section">
+      <span class="sbar"></span>
+      <span class="slbl"><b>Process 01</b> &middot; Collections Reconciliation</span>
+      <span class="scount">16 skills · grouped by stage of the loop</span>
+    </div>
+    <div class="skills-grid">
+      <div class="skill-mini new"><div class="sid">01 · NEW</div><div class="sn">csv-normalizer</div><div class="sd">Three CSVs → one canonical workbook, schema-drift safe.</div><div class="ss">Daily loop · −25 min/day</div></div>
+      <div class="skill-mini new"><div class="sid">02 · NEW</div><div class="sn">fuzzy-name-matcher</div><div class="sd">Tolerant name + MSISDN match to rider master.</div><div class="ss">Daily loop · +22pp auto-match</div></div>
+      <div class="skill-mini new"><div class="sid">03 · NEW</div><div class="sn">exception-triage</div><div class="sd">Classifies unmatched lines, proposes rider w/ confidence.</div><div class="ss">Daily loop · −45 min/day</div></div>
+      <div class="skill-mini new"><div class="sid">04 · NEW</div><div class="sn">zoho-poster (FIFO)</div><div class="sd">Posts each match to oldest open invoice w/ TXN id.</div><div class="ss">Daily loop · −55 min/day</div></div>
+
+      <div class="skill-mini"><div class="sid">05</div><div class="sn">suspense-classifier</div><div class="sd">Name-drift / unknown sender / over / under / duplicate.</div><div class="ss">Suspense flow</div></div>
+      <div class="skill-mini"><div class="sid">06</div><div class="sn">msisdn-resolver</div><div class="sd">Cross-checks portal MSISDN to rider history.</div><div class="ss">Suspense flow</div></div>
+      <div class="skill-mini"><div class="sid">07</div><div class="sn">three-way-reconciler</div><div class="sd">Bike ↔ rider ↔ invoice — daily completeness &amp; existence.</div><div class="ss">Audit</div></div>
+      <div class="skill-mini"><div class="sid">08</div><div class="sn">fleet-tagger</div><div class="sd">WF / TSA enforced at every read; powers the split.</div><div class="ss">Cross-cutting</div></div>
+
+      <div class="skill-mini"><div class="sid">09</div><div class="sn">collections-report-builder</div><div class="sd">Weekly Report A by fleet — active billing only.</div><div class="ss">Reporting</div></div>
+      <div class="skill-mini"><div class="sid">10</div><div class="sn">recovery-report-builder</div><div class="sd">Monthly Report B by fleet — aged debt + provisions.</div><div class="ss">Reporting</div></div>
+      <div class="skill-mini"><div class="sid">11</div><div class="sn">portfolio-builder</div><div class="sd">Rolls A + B per fleet — twin portfolios, never merged.</div><div class="ss">Reporting</div></div>
+      <div class="skill-mini"><div class="sid">12</div><div class="sn">tsa-extract</div><div class="sd">Same data, TSA-only pack for the TSA owner.</div><div class="ss">Reporting</div></div>
+
+      <div class="skill-mini"><div class="sid">13</div><div class="sn">risk-flag-engine</div><div class="sd">8-week behaviour profile vs today — Amber / Red triggers.</div><div class="ss">Behavioural</div></div>
+      <div class="skill-mini"><div class="sid">14</div><div class="sn">outreach-composer</div><div class="sd">Rider-specific SMS / call brief for every flag.</div><div class="ss">Behavioural</div></div>
+      <div class="skill-mini"><div class="sid">15</div><div class="sn">case-file-builder</div><div class="sd">PAR 90 / legal pack — counsel-ready, fully traceable.</div><div class="ss">Recovery</div></div>
+      <div class="skill-mini"><div class="sid">16</div><div class="sn">statement-generator</div><div class="sd">Sunday PDF + credit score for every active rider.</div><div class="ss">Rider-facing</div></div>
+    </div>
+
+    <div class="pn">WAHU · COLLECTIONS · v2.0</div>
+    <div class="pn-r">P 11 / 12</div>
+  </section>
+
+  <!-- ============================================== SLIDE 12 — SKILLS · BOLTFOOD + BUILD SEQUENCE -->
+  <section data-screen-label="12 Skills BoltFood Build">
+    <div class="chrome">
+      <div class="brand"><span class="bdot"></span><b>Wahu @ Finance</b></div>
+      <div class="page-tag">CLAUDE SKILLS ·<br/>P 12</div>
+    </div>
+    <div class="eyebrow"><span class="bar"></span><span><b>BUILD PLAN · PROCESS 02 + ROADMAP</b> &middot; BoltFood skills + build sequence</span></div>
+    <h1 class="h1" style="font-size: 56px; margin-bottom: 28px;">BoltFood — <span class="acc">four skills.</span> Plus: what ships first.</h1>
+
+    <div class="skill-section">
+      <span class="sbar"></span>
+      <span class="slbl"><b>Process 02</b> &middot; BoltFood Reseller Payouts</span>
+      <span class="scount">4 skills</span>
+    </div>
+    <div class="skills-grid boltfood">
+      <div class="skill-mini new"><div class="sid">17 · BOLT</div><div class="sn">bolt-report-ingest</div><div class="sd">Parses Elizabeth's weekly file into a normalised rider table. Detects schema changes between weeks and flags before workings start.</div><div class="ss">BoltFood lifecycle</div></div>
+      <div class="skill-mini new"><div class="sid">18 · BOLT</div><div class="sn">mtn-wallet-tieout</div><div class="sd">Ties Bolt MTN Wallet inflow to report total before any workings. Hard stop on variance; nothing posts until tied.</div><div class="ss">BoltFood lifecycle</div></div>
+      <div class="skill-mini new"><div class="sid">19 · BOLT</div><div class="sn">hubtel-batch-builder</div><div class="sd">Per-rider net payout batch + one-page approval pack for Robert. Includes commission split + deduction trail.</div><div class="ss">BoltFood lifecycle</div></div>
+      <div class="skill-mini new"><div class="sid">20 · BOLT</div><div class="sn">tsa-commission-accruer</div><div class="sd">Builds the weekly TSA Payable; month-end remittance batch auto-triggered on the last working day with CFO sign-off.</div><div class="ss">BoltFood accounting</div></div>
+    </div>
+
+    <div class="skill-section" style="margin-top: 24px;">
+      <span class="sbar"></span>
+      <span class="slbl"><b>Build sequence</b> &middot; order skills by unlock value</span>
+      <span class="scount">tier 1 → 2 → 3</span>
+    </div>
+    <div class="tier-grid">
+      <div class="tier tier-now">
+        <div class="th">Tier 01 · Build now</div>
+        <div class="ts">Highest leverage. Retires manual workbook + Zoho re-key. BoltFood lifecycle out of the spreadsheet.</div>
+        <ul>
+          <li><b>01–04</b> Daily loop · csv, fuzzy, triage, zoho-poster</li>
+          <li><b>07</b> three-way-reconciler</li>
+          <li><b>08</b> fleet-tagger</li>
+          <li><b>17–19</b> BoltFood lifecycle (ingest, tie-out, batch)</li>
+        </ul>
+      </div>
+      <div class="tier tier-next">
+        <div class="th">Tier 02 · Next quarter</div>
+        <div class="ts">Compounds tier 1. Suspense flow + reporting + BoltFood accounting all become first-class.</div>
+        <ul>
+          <li><b>05–06</b> Suspense flow (classifier + resolver)</li>
+          <li><b>09–11</b> Collections / Recovery / Portfolio reports</li>
+          <li><b>20</b> tsa-commission-accruer</li>
+        </ul>
+      </div>
+      <div class="tier tier-later">
+        <div class="th">Tier 03 · Later</div>
+        <div class="ts">Polish + rider-facing surface area. Lower urgency, still high quality-of-life.</div>
+        <ul>
+          <li><b>12</b> tsa-extract</li>
+          <li><b>13–14</b> Risk flags + outreach</li>
+          <li><b>15</b> case-file-builder</li>
+          <li><b>16</b> statement-generator</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pn">WAHU · FINANCE · v2.0</div>
+    <div class="pn-r">P 12 / 12</div>
+  </section>
+
+</deck-stage>
+
+</body>
+</html>

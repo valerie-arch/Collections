@@ -1,0 +1,65 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-tightest text-ink;
+  }
+  p {
+    @apply leading-relaxed2;
+  }
+}
+
+@layer components {
+  .surface {
+    @apply rounded-xl bg-canvas-raised shadow-card border border-canvas-line/70;
+  }
+  .surface-elevated {
+    @apply rounded-xl bg-canvas-raised shadow-elevated border border-canvas-line/70;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-success { @apply badge bg-moss-500/10 text-moss-600; }
+  .badge-warning { @apply badge bg-accent-500/10 text-accent-700; }
+  .badge-danger  { @apply badge bg-clay-500/10 text-clay-600; }
+  .badge-muted   { @apply badge bg-canvas-sunken text-ink-muted; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+           transition-[transform,opacity,background-color,box-shadow] duration-150 ease-spring
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           focus-visible:ring-offset-canvas focus-visible:ring-accent-500
+           active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply btn bg-ink text-canvas-raised hover:bg-ink-soft;
+  }
+  .btn-secondary {
+    @apply btn bg-canvas-raised text-ink border border-canvas-line hover:border-ink-fade hover:bg-canvas-sunken;
+  }
+
+  .data-grid {
+    @apply w-full text-sm;
+  }
+  .data-grid th {
+    @apply text-left text-xs font-medium uppercase tracking-wider text-ink-fade
+           px-4 py-3 border-b border-canvas-line bg-canvas-sunken/50;
+  }
+  .data-grid td {
+    @apply px-4 py-3 border-b border-canvas-line/60 align-top;
+  }
+  .data-grid tr:last-child td {
+    @apply border-b-0;
+  }
+}

@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1440" />
+<title>Wahu Collections — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    --bg: #f6f3e9;
+    --paper: #faf7ed;
+    --card: #ffffff;
+    --ink: #16140f;
+    --ink-2: #3a352d;
+    --muted: #76716a;
+    --line: #d4ccba;
+    --line-soft: #e7decb;
+    --lime: #c8e840;
+    --lime-2: #d4ec5b;
+    --slot: #0c2419;
+    --slot-2: #1a3a2a;
+    --red: oklch(0.55 0.18 25);
+    --amber: oklch(0.62 0.15 55);
+    --green: oklch(0.55 0.13 145);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); min-height: 100vh; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  .num  { font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  button { font-family: inherit; }
+
+  /* App shell */
+  .app { min-height: 100vh; display: flex; flex-direction: column; }
+  .topbar {
+    background: var(--ink); color: var(--paper);
+    padding: 16px 28px;
+    display: flex; align-items: center; gap: 20px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .topbar .brand {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 15px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .topbar .brand .bd { width: 9px; height: 9px; background: var(--lime); border-radius: 2px; }
+  .topbar .brand b { font-weight: 600; }
+  .topbar .divider { width: 1px; height: 22px; background: rgba(255,255,255,0.15); }
+  .topbar .crumb { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: rgba(255,255,255,0.55); letter-spacing: 0.06em; text-transform: uppercase; }
+  .topbar .crumb b { color: var(--paper); font-weight: 600; }
+  .topbar .spacer { flex: 1; }
+  .topbar .date {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: rgba(255,255,255,0.7);
+    letter-spacing: 0.04em;
+  }
+  .topbar .user {
+    display: flex; align-items: center; gap: 8px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    background: rgba(255,255,255,0.06); padding: 6px 10px 6px 8px; border-radius: 6px;
+  }
+  .topbar .user .av { width: 22px; height: 22px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 11px; }
+
+  /* Fleet segmented control */
+  .fleet-filter {
+    display: inline-flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 3px;
+  }
+  .fleet-filter button {
+    background: transparent; border: none; color: rgba(255,255,255,0.65);
+    padding: 6px 14px; border-radius: 5px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.04em;
+    transition: all 120ms;
+  }
+  .fleet-filter button:hover { color: var(--paper); }
+  .fleet-filter button.active { background: var(--lime); color: var(--ink); font-weight: 600; }
+
+  /* Tab strip */
+  .tabs {
+    background: var(--paper);
+    padding: 0 28px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: stretch; gap: 0;
+  }
+  .tabs button {
+    background: transparent; border: none; cursor: pointer;
+    padding: 16px 22px 14px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    transition: color 120ms;
+  }
+  .tabs button:hover { color: var(--ink); }
+  .tabs button.active { color: var(--ink); }
+  .tabs button.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 2px; background: var(--lime);
+  }
+  .tabs button .ix { color: var(--muted); font-weight: 400; }
+  .tabs button.active .ix { color: var(--ink); }
+  .tabs .tab-end { margin-left: auto; padding: 14px 0; display: flex; align-items: center; gap: 10px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .tabs .tab-end .stat-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    font-size: 11px; letter-spacing: 0.04em;
+  }
+  .tabs .tab-end .stat-pill .d { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .tabs .tab-end .stat-pill.warn .d { background: var(--amber); }
+
+  /* Main area */
+  .main { flex: 1; padding: 24px 28px 48px; max-width: 1500px; width: 100%; margin: 0 auto; }
+
+  /* Sections */
+  .section { margin-bottom: 28px; }
+  .section .sh { display: flex; align-items: baseline; gap: 14px; margin-bottom: 14px; }
+  .section .sh h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
+  .section .sh .nt { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+  .section .sh .right { margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); }
+
+  /* ============================== UPLOAD VIEW */
+  .upload-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;
+  }
+  .slot {
+    background: var(--card); border: 1.5px dashed var(--line); border-radius: 10px;
+    padding: 18px 20px; min-height: 168px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: all 160ms;
+    cursor: pointer;
+    position: relative;
+  }
+  .slot:hover { border-color: var(--ink); background: var(--paper); }
+  .slot.uploaded { border-style: solid; border-color: var(--green); background: color-mix(in oklch, var(--green) 5%, white); }
+  .slot.uploaded:hover { background: color-mix(in oklch, var(--green) 10%, white); }
+  .slot.processing { border-style: solid; border-color: var(--amber); background: color-mix(in oklch, var(--amber) 6%, white); }
+  .slot .sh {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .slot .sh .src {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .slot .sh .status {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 3px;
+    background: var(--line-soft); color: var(--muted);
+  }
+  .slot.uploaded .status { background: var(--green); color: white; }
+  .slot.processing .status { background: var(--amber); color: white; }
+  .slot h3 {
+    margin: 4px 0 4px; font-size: 18px; font-weight: 600; letter-spacing: -0.005em;
+    line-height: 1.2;
+  }
+  .slot .desc {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-2);
+    line-height: 1.5; margin: 0;
+  }
+  .slot .file-meta {
+    margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+  }
+  .slot .file-meta .fname { color: var(--ink); font-weight: 500; }
+  .slot.empty .file-meta { color: var(--muted); }
+  .slot.empty .file-meta::before { content: "+ "; }
+  .slot .reload-btn {
+    background: transparent; border: none; color: var(--muted); cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .slot .reload-btn:hover { color: var(--ink); }
+
+  .upload-cta {
+    margin-top: 22px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+    padding: 22px 24px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .upload-cta .summary {
+    flex: 1;
+    display: flex; align-items: baseline; gap: 18px;
+  }
+  .upload-cta .summary .big {
+    font-family: "IBM Plex Mono", monospace; font-size: 32px; font-weight: 600;
+    letter-spacing: -0.02em; line-height: 1;
+  }
+  .upload-cta .summary .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .upload-cta .summary .info {
+    color: var(--ink-2); font-size: 14px; line-height: 1.4; max-width: 600px;
+  }
+  .btn-primary {
+    background: var(--ink); color: var(--lime);
+    border: none; border-radius: 8px;
+    padding: 14px 22px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    font-weight: 600; letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 10px;
+    transition: all 120ms;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--slot-2); }
+  .btn-primary:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
+  .btn-primary .arrow { font-size: 16px; line-height: 1; }
+  .btn-secondary {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--ink); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: all 120ms;
+  }
+  .btn-secondary:hover { background: var(--ink); color: var(--paper); }
+  .btn-lime {
+    background: var(--lime); color: var(--ink);
+    border: none; border-radius: 8px;
+    padding: 12px 18px; cursor: pointer;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    font-weight: 600; letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: all 120ms;
+  }
+  .btn-lime:hover { background: var(--lime-2); }
+
+  /* ============================== DASHBOARD VIEW */
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    position: relative; overflow: hidden;
+  }
+  .kpi.dark { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .kpi .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .kpi.dark .lbl { color: var(--lime); }
+  .kpi .val {
+    font-family: "IBM Plex Mono", monospace; font-size: 32px; font-weight: 600;
+    letter-spacing: -0.02em; line-height: 1;
+  }
+  .kpi .sub {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+    margin-top: auto; display: flex; align-items: center; gap: 8px;
+  }
+  .kpi.dark .sub { color: rgba(255,255,255,0.6); }
+  .kpi .sub .delta { padding: 2px 6px; border-radius: 3px; font-size: 10px; }
+  .kpi .sub .delta.up { background: color-mix(in oklch, var(--green) 14%, white); color: var(--green); }
+  .kpi .sub .delta.down { background: color-mix(in oklch, var(--red) 12%, white); color: var(--red); }
+  .kpi .sub .delta.flat { background: var(--line-soft); color: var(--muted); }
+  .kpi.dark .sub .delta { background: rgba(255,255,255,0.08); color: var(--lime); }
+
+  .dash-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px;
+  }
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px 22px;
+  }
+  .panel .ph {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft);
+  }
+  .panel .ph h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.005em; }
+  .panel .ph .meta { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+
+  /* Completeness bars */
+  .bars { display: flex; flex-direction: column; gap: 12px; }
+  .bar-row { display: grid; grid-template-columns: 130px 1fr 60px; gap: 14px; align-items: center; }
+  .bar-row .nm { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-2); }
+  .bar-row .v { font-family: "IBM Plex Mono", monospace; font-size: 14px; font-weight: 600; text-align: right; }
+  .bar-row .tk { background: var(--line-soft); border-radius: 4px; height: 10px; overflow: hidden; position: relative; }
+  .bar-row .tk .fill { background: var(--ink); height: 100%; border-radius: 4px; transition: width 280ms; }
+  .bar-row.good .tk .fill { background: var(--green); }
+  .bar-row.warn .tk .fill { background: var(--amber); }
+
+  /* Suspense ageing */
+  .ageing-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+  .age-cell {
+    padding: 14px 16px; border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 6px;
+    background: var(--paper);
+  }
+  .age-cell:last-child { border-right: none; }
+  .age-cell .age-lbl { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .age-cell .age-val { font-family: "IBM Plex Mono", monospace; font-size: 20px; font-weight: 600; }
+  .age-cell .age-cnt { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); }
+  .age-cell.warn { background: color-mix(in oklch, var(--amber) 8%, white); }
+  .age-cell.alert { background: var(--ink); color: var(--paper); }
+  .age-cell.alert .age-lbl { color: var(--lime); }
+  .age-cell.alert .age-cnt { color: rgba(255,255,255,0.6); }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td {
+    padding: 11px 0;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    text-align: right; border-bottom: 1px solid var(--line-soft);
+  }
+  .data-table th:first-child, .data-table td:first-child {
+    text-align: left; font-family: "Helvetica Neue", sans-serif; padding-right: 12px;
+  }
+  .data-table th {
+    font-size: 10px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase;
+    border-bottom: 1px solid var(--ink); padding-top: 4px; padding-bottom: 8px;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover { background: var(--paper); }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .tag.wf { background: var(--ink); color: var(--paper); }
+  .tag.tsa { background: color-mix(in oklch, var(--lime) 60%, white); color: var(--slot); }
+  .tag.red { background: color-mix(in oklch, var(--red) 14%, white); color: var(--red); }
+  .tag.amber { background: color-mix(in oklch, var(--amber) 14%, white); color: var(--amber); }
+  .tag.green { background: color-mix(in oklch, var(--green) 14%, white); color: var(--green); }
+
+  .dual-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ============================== REPORTS VIEW */
+  .reports-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .report-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 24px 26px;
+    display: flex; flex-direction: column; gap: 14px;
+    position: relative; overflow: hidden;
+  }
+  .report-card .corner {
+    position: absolute; top: 0; right: 0; width: 110px; height: 100%;
+    background: var(--paper); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .report-card .corner .lt { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: 0.1em; }
+  .report-card .corner .sm { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .report-card .content { padding-right: 130px; }
+  .report-card h3 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; }
+  .report-card .sub { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+  .report-card .what {
+    background: var(--paper); border-radius: 8px; padding: 12px 14px;
+    font-size: 13px; color: var(--ink-2); line-height: 1.5;
+    border-left: 3px solid var(--lime);
+  }
+  .report-card .form-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    margin-top: 4px;
+  }
+  .form-field { display: flex; flex-direction: column; gap: 6px; }
+  .form-field label {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .form-field select, .form-field input {
+    background: var(--paper); border: 1px solid var(--line);
+    border-radius: 6px; padding: 9px 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    color: var(--ink); cursor: pointer;
+  }
+  .report-card .actions {
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .report-card .actions .file-meta {
+    flex: 1;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+  }
+  .report-card .actions .file-meta b { color: var(--ink); }
+
+  /* Recent downloads */
+  .recent-list {
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .recent-item {
+    display: grid; grid-template-columns: 100px 1fr auto auto;
+    align-items: center; gap: 16px;
+    padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+  }
+  .recent-item:last-child { border-bottom: none; }
+  .recent-item .when { color: var(--muted); font-size: 11px; }
+  .recent-item .what { color: var(--ink); font-weight: 500; }
+  .recent-item .who { color: var(--muted); font-size: 11px; }
+  .recent-item button {
+    background: transparent; border: none; color: var(--ink);
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--ink); color: var(--paper);
+    border-radius: 10px; padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 12px 32px -16px rgba(0,0,0,0.4);
+    z-index: 100;
+    animation: toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .toast .check { width: 22px; height: 22px; border-radius: 50%; background: var(--lime); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+  .toast .msg { font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  @keyframes toast-in {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Mini chart */
+  .spark { display: flex; align-items: flex-end; gap: 3px; height: 36px; }
+  .spark .b { width: 6px; background: var(--ink); border-radius: 1.5px; transition: height 200ms; }
+  .spark .b.target { background: var(--lime); }
+
+  /* Donut */
+  .donut-wrap {
+    display: grid; grid-template-columns: 140px 1fr; gap: 18px; align-items: center;
+  }
+  .donut svg { width: 140px; height: 140px; transform: rotate(-90deg); }
+  .donut .center {
+    position: relative;
+  }
+  .donut-legend { display: flex; flex-direction: column; gap: 10px; }
+  .donut-legend .row { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; }
+  .donut-legend .row .sw { width: 12px; height: 12px; border-radius: 3px; }
+  .donut-legend .row .nm { font-size: 13px; }
+  .donut-legend .row .v { font-family: "IBM Plex Mono", monospace; font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<template id="__bundler_thumbnail" data-bg-color="#16140f">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#16140f"/>
+    <!-- lime accent block -->
+    <rect x="360" y="260" width="60" height="60" rx="6" fill="#c8e840"/>
+    <!-- wordmark dots -->
+    <rect x="450" y="280" width="22" height="22" rx="4" fill="#c8e840"/>
+    <rect x="490" y="280" width="22" height="22" rx="4" fill="#c8e840" opacity="0.6"/>
+    <rect x="530" y="280" width="22" height="22" rx="4" fill="#c8e840" opacity="0.3"/>
+    <!-- KPI bar mock -->
+    <rect x="360" y="380" width="480" height="3" fill="#c8e840"/>
+    <rect x="360" y="420" width="110" height="50" rx="6" fill="#faf7ed" opacity="0.12"/>
+    <rect x="485" y="420" width="110" height="50" rx="6" fill="#faf7ed" opacity="0.12"/>
+    <rect x="610" y="420" width="110" height="50" rx="6" fill="#c8e840" opacity="0.85"/>
+    <rect x="735" y="420" width="110" height="50" rx="6" fill="#faf7ed" opacity="0.12"/>
+    <!-- label dots -->
+    <circle cx="380" cy="515" r="3" fill="#c8e840"/>
+    <circle cx="400" cy="515" r="3" fill="#faf7ed" opacity="0.3"/>
+    <circle cx="420" cy="515" r="3" fill="#faf7ed" opacity="0.3"/>
+  </svg>
+</template>
+
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+
+const { useState, useMemo, useEffect } = React;
+
+/* ============================================================ MOCK DATA */
+// Numbers stored per fleet; "all" is computed from wf + tsa.
+const FLEETS = ['all', 'wf', 'tsa'];
+const FLEET_LABELS = { all: 'All Fleets', wf: 'Wahu Fleet', tsa: 'TSA Fleet' };
+
+const KPI_DATA = {
+  collectionRate: { wf: 96.7, tsa: 95.5, all: 96.2 },
+  par7Pct:        { wf: 4.5,  tsa: 4.8,  all: 4.6 },
+  par7Amt:        { wf: 14200, tsa: 11800, all: 26000 },
+  par30Pct:       { wf: 1.7,  tsa: 1.9,  all: 1.8 },
+  activeRiders:   { wf: 230, tsa: 180, all: 410 },
+  activeBikes:    { wf: 230, tsa: 180, all: 410 },
+  totalBikes:     { wf: 268, tsa: 207, all: 475 },
+  invoicedWk:     { wf: 96600, tsa: 75600, all: 172200 },
+  collectedWk:    { wf: 93400, tsa: 72200, all: 165600 },
+  suspenseAmt:    { wf: 2900, tsa: 1900, all: 4800 },
+  suspenseCnt:    { wf: 8,   tsa: 6,   all: 14 },
+  churnedRiders:  { wf: 38, tsa: 27, all: 65 },
+  recoveriesMTD:  { wf: 8400, tsa: 5200, all: 13600 },
+  writeoffsMTD:   { wf: 35000, tsa: 22000, all: 57000 },
+  completeness:   { wf: 100.0, tsa: 100.0, all: 100.0 },
+  existence:      { wf: 100.0, tsa: 99.4, all: 99.8 },
+  heroShare:      { wf: 58, tsa: 52, all: 55 },
+};
+
+const TOP_ARREARS = [
+  { rider: 'Kofi A. Mensah',     fleet: 'wf',  bike: 'IMEI-…7821', days: 14, amt: 1260, flag: 'red',   action: 'Immobilised' },
+  { rider: 'Akua Boateng',       fleet: 'tsa', bike: 'IMEI-…3104', days: 11, amt: 980,  flag: 'red',   action: 'Field visit booked' },
+  { rider: 'Yaw Owusu',          fleet: 'wf',  bike: 'IMEI-…5550', days: 9,  amt: 840,  flag: 'red',   action: 'Immobilisation queue' },
+  { rider: 'Esi Mensah',         fleet: 'tsa', bike: 'IMEI-…2287', days: 7,  amt: 630,  flag: 'red',   action: 'Awaiting HoC sign-off' },
+  { rider: 'Kwame Asante',       fleet: 'wf',  bike: 'IMEI-…9931', days: 5,  amt: 420,  flag: 'amber', action: 'Promise-to-pay' },
+  { rider: 'Adwoa Sarpong',      fleet: 'tsa', bike: 'IMEI-…0445', days: 5,  amt: 420,  flag: 'amber', action: 'Officer called' },
+  { rider: 'Kojo Frimpong',      fleet: 'wf',  bike: 'IMEI-…1182', days: 4,  amt: 350,  flag: 'amber', action: 'SMS sent' },
+  { rider: 'Ama Acheampong',     fleet: 'tsa', bike: 'IMEI-…6612', days: 3,  amt: 280,  flag: 'amber', action: 'PTP for Friday' },
+];
+
+const EXCEPTIONS = [
+  { txn: 'MTN-89AC22', sender: '0244…112', amt: 70,  reason: 'Unknown sender — calling rider master',         conf: 'high'  },
+  { txn: 'VOD-7711A2', sender: '0200…445', amt: 140, reason: 'Name drift — "K Mensah" matches Kofi A. Mensah', conf: 'high'  },
+  { txn: 'MTN-A88172', sender: '0598…339', amt: 70,  reason: 'Over-payment — applied to next invoice',         conf: 'med'   },
+  { txn: 'HRO-D11290', sender: 'app:5512', amt: 210, reason: 'Pre-tagged — verify only',                       conf: 'high'  },
+  { txn: 'VOD-5582D1', sender: '0244…009', amt: 70,  reason: 'Duplicate — already posted earlier today',       conf: 'high'  },
+];
+
+const COMPLETENESS_ROWS = [
+  { name: 'Active bikes deployed',          wf: 230, tsa: 180, target: '—',     ok: 'neutral' },
+  { name: 'Bikes with active rider linked', wf: 230, tsa: 180, target: '100%',  ok: 'good' },
+  { name: 'Active riders with bike linked', wf: 230, tsa: 179, target: '100%',  ok: 'warn' },
+  { name: 'Live invoices in Zoho',          wf: 230, tsa: 181, target: '—',     ok: 'neutral' },
+  { name: 'Invoices linked to deployed bike', wf: 230, tsa: 180, target: '100%', ok: 'good' },
+];
+
+const SUSPENSE_AGEING = [
+  { age: 'T+0 to 24h',  count: 5, amt: 1430, status: 'auto'  },
+  { age: 'T+24 to 48h', count: 4, amt: 1240, status: 'reach' },
+  { age: 'T+2 to 7d',   count: 3, amt: 1280, status: 'warn'  },
+  { age: 'T+7d',        count: 2, amt: 850,  status: 'alert' },
+];
+
+const RECENT_DOWNLOADS = [
+  { when: '2026-05-13 14:02', what: 'Collections Report — Week 18 — Wahu Fleet', by: 'amma@wahu',  fmt: 'PDF', size: '184 KB' },
+  { when: '2026-05-13 14:02', what: 'Collections Report — Week 18 — TSA Fleet',  by: 'amma@wahu',  fmt: 'PDF', size: '162 KB' },
+  { when: '2026-05-13 10:18', what: 'Recovery Report — May MTD — All',           by: 'james@wahu', fmt: 'PDF', size: '288 KB' },
+  { when: '2026-05-12 16:44', what: 'Twin Portfolio — Wk 17 / Apr MTD',          by: 'cfo@wahu',   fmt: 'XLSX', size: '94 KB' },
+  { when: '2026-05-12 09:31', what: 'Daily Recon Workbook — 2026-05-12',         by: 'amma@wahu',  fmt: 'XLSX', size: '212 KB' },
+];
+
+const DAILY_TREND = [88, 92, 91, 95, 96, 95, 97, 94, 96, 98, 96, 97, 95, 96];
+
+/* ============================================================ UTIL */
+const ghs = (n) => '₵' + n.toLocaleString('en-US');
+const pct = (n) => n.toFixed(1) + '%';
+
+function fmtDate(d) {
+  return d.toISOString().slice(0,10);
+}
+
+/* ============================================================ COMPONENTS */
+function TopBar({ fleet, setFleet }) {
+  const today = new Date('2026-05-14T09:14:00Z');
+  return (
+    <div className="topbar">
+      <div className="brand"><span className="bd"></span><b>Wahu @ Finance</b></div>
+      <div className="divider"></div>
+      <div className="crumb">Collections &middot; <b>v2 Console</b></div>
+      <div className="spacer"></div>
+      <div className="fleet-filter">
+        {FLEETS.map(f => (
+          <button key={f} className={fleet === f ? 'active' : ''} onClick={() => setFleet(f)}>
+            {FLEET_LABELS[f]}
+          </button>
+        ))}
+      </div>
+      <div className="divider"></div>
+      <div className="date">Thu 14 May 2026 &middot; 09:14 GMT</div>
+      <div className="user"><span className="av">AO</span> Amma Owusu</div>
+    </div>
+  );
+}
+
+function TabStrip({ tab, setTab, uploadedCount, totalSources, lastRunAt }) {
+  const allUploaded = uploadedCount === totalSources;
+  return (
+    <div className="tabs">
+      <button className={tab === 'upload' ? 'active' : ''} onClick={() => setTab('upload')}>
+        <span className="ix">01</span> Upload Inputs
+      </button>
+      <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>
+        <span className="ix">02</span> Dashboard
+      </button>
+      <button className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>
+        <span className="ix">03</span> Reports
+      </button>
+      <div className="tab-end">
+        <span className={"stat-pill" + (allUploaded ? "" : " warn")}>
+          <span className="d"></span> {uploadedCount} / {totalSources} sources ready
+        </span>
+        <span className="stat-pill"><span className="d"></span> Last run · {lastRunAt}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------- UPLOAD VIEW */
+const SOURCES = [
+  { id: 'mtn',   src: 'MTN MERCHANT',     title: 'MTN Merchant CSV',           desc: '0598953614 portal · daily transactions export', expFile: 'mtn_2026-05-14.csv', expRows: 312 },
+  { id: 'voda',  src: 'VODAFONE MERCHANT', title: 'Vodafone Merchant CSV',     desc: '0200447867 portal · daily transactions export', expFile: 'voda_2026-05-14.csv', expRows: 248 },
+  { id: 'hero',  src: 'HERO APP',         title: 'Hero App ledger',             desc: 'Wahu OS export · pre-tagged rider payments',   expFile: 'hero_2026-05-14.csv', expRows: 186 },
+  { id: 'bikes', src: 'WAHU OS',          title: 'Bike inventory snapshot',     desc: 'Source of truth · fleet-tagged (WF / TSA)',     expFile: 'bikes_2026-05-14.csv', expRows: 475 },
+  { id: 'zoho',  src: 'ZOHO BILLING',     title: 'Zoho open / overdue invoices', desc: 'Per-rider arrears · FIFO target',              expFile: 'zoho_open_2026-05-14.csv', expRows: 519 },
+  { id: 'rider', src: 'WAHU OS',          title: 'Rider master + assignments',   desc: 'Active contracts · agency tags · MSISDNs',     expFile: 'riders_2026-05-14.csv', expRows: 410 },
+  { id: 'bolt',  src: 'BOLTFOOD · WEEKLY',  title: 'BoltFood Reseller earnings',   desc: "Elizabeth's weekly file · per-rider earnings prior wk", expFile: 'boltfood_wk18_2026-05-12.xlsx', expRows: 287 },
+];
+
+function UploadView({ uploads, setUploads, onRun, isRunning }) {
+  const filledCount = Object.values(uploads).filter(u => u.status === 'uploaded').length;
+
+  function onSlotClick(id) {
+    setUploads(prev => {
+      const cur = prev[id];
+      // toggle cycle: empty -> uploading -> uploaded; uploaded -> empty
+      if (!cur || cur.status === 'empty') {
+        // simulate processing
+        setTimeout(() => {
+          setUploads(p => ({ ...p, [id]: { ...p[id], status: 'uploaded' } }));
+        }, 700);
+        const meta = SOURCES.find(s => s.id === id);
+        return { ...prev, [id]: { status: 'processing', file: meta.expFile, rows: meta.expRows } };
+      }
+      if (cur.status === 'uploaded') {
+        return { ...prev, [id]: { status: 'empty' } };
+      }
+      return prev;
+    });
+  }
+
+  function reuploadFromYesterday() {
+    const next = {};
+    SOURCES.forEach(s => { next[s.id] = { status: 'uploaded', file: s.expFile, rows: s.expRows }; });
+    setUploads(next);
+  }
+
+  return (
+    <>
+      <div className="section">
+        <div className="sh">
+          <h2>Upload today's input data</h2>
+          <span className="nt">Drop the daily exports here, or click each slot to attach. Required for the 09:00 reconciliation run.</span>
+          <span className="right"><button className="btn-secondary" onClick={reuploadFromYesterday}>+ Pull yesterday's set</button></span>
+        </div>
+        <div className="upload-grid">
+          {SOURCES.map(s => {
+            const u = uploads[s.id] || { status: 'empty' };
+            const cls = "slot " + u.status;
+            return (
+              <div key={s.id} className={cls} onClick={() => onSlotClick(s.id)}>
+                <div className="sh">
+                  <span className="src">{s.src}</span>
+                  <span className="status">{u.status === 'uploaded' ? 'Ready' : u.status === 'processing' ? 'Processing' : 'Empty'}</span>
+                </div>
+                <h3>{s.title}</h3>
+                <p className="desc">{s.desc}</p>
+                <div className="file-meta">
+                  {u.status === 'uploaded' ? (
+                    <>
+                      <span><span className="fname">{u.file}</span> &middot; {u.rows} rows</span>
+                      <button className="reload-btn" onClick={(e) => { e.stopPropagation(); onSlotClick(s.id); }}>replace</button>
+                    </>
+                  ) : u.status === 'processing' ? (
+                    <span>parsing &amp; validating…</span>
+                  ) : (
+                    <span>click to attach a file</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="upload-cta">
+        <div className="summary">
+          <div>
+            <div className="big">{filledCount}<span style={{color:'var(--muted)', fontSize:'18px'}}>/{SOURCES.length}</span></div>
+            <div className="lbl">sources ready</div>
+          </div>
+          <div className="info">
+            All six sources must be attached before the reconciliation run. Claude ingests, normalises, and ties out — Finance four-eyes the result before close.
+          </div>
+        </div>
+        <button className="btn-primary" disabled={filledCount < SOURCES.length || isRunning} onClick={onRun}>
+          {isRunning ? 'Running reconciliation…' : 'Run daily reconciliation'} <span className="arrow">→</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------- DASHBOARD VIEW */
+function Donut({ wf, tsa }) {
+  const total = wf + tsa;
+  const wfPct = (wf / total) * 100;
+  const tsaPct = (tsa / total) * 100;
+  const C = 2 * Math.PI * 56;
+  const wfDash = (wfPct / 100) * C;
+  return (
+    <div className="donut-wrap">
+      <div className="donut">
+        <svg viewBox="0 0 140 140">
+          <circle cx="70" cy="70" r="56" fill="none" stroke="var(--lime)" strokeWidth="22" strokeDasharray={`${(tsaPct/100)*C} ${C}`} strokeDashoffset={-wfDash} />
+          <circle cx="70" cy="70" r="56" fill="none" stroke="var(--ink)" strokeWidth="22" strokeDasharray={`${wfDash} ${C}`} />
+        </svg>
+      </div>
+      <div className="donut-legend">
+        <div className="row"><span className="sw" style={{background:'var(--ink)'}}></span><span className="nm">Wahu Fleet</span><span className="v">{wf}</span></div>
+        <div className="row"><span className="sw" style={{background:'var(--lime)'}}></span><span className="nm">TSA Fleet</span><span className="v">{tsa}</span></div>
+        <div className="row" style={{paddingTop:'10px', borderTop:'1px solid var(--line-soft)'}}><span></span><span className="nm" style={{color:'var(--muted)', fontFamily:'IBM Plex Mono', fontSize:'11px', letterSpacing:'0.06em', textTransform:'uppercase'}}>Total active</span><span className="v">{total}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function Spark({ values, target = 95 }) {
+  const max = Math.max(...values);
+  return (
+    <div className="spark">
+      {values.map((v, i) => {
+        const h = (v / 100) * 36;
+        const isLatest = i === values.length - 1;
+        return <div key={i} className={"b" + (isLatest ? " target" : "")} style={{height: `${h}px`}}></div>;
+      })}
+    </div>
+  );
+}
+
+function DashboardView({ fleet }) {
+  const k = KPI_DATA;
+  const filteredArrears = useMemo(() =>
+    fleet === 'all' ? TOP_ARREARS : TOP_ARREARS.filter(r => r.fleet === fleet),
+  [fleet]);
+
+  return (
+    <>
+      <div className="kpi-row">
+        <div className="kpi dark">
+          <span className="lbl">Collection rate · WTD</span>
+          <span className="val">{pct(k.collectionRate[fleet])}</span>
+          <span className="sub">
+            <span className="delta">target ≥ 95%</span>
+            <Spark values={DAILY_TREND} />
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">PAR &gt; 7 days</span>
+          <span className="val">{pct(k.par7Pct[fleet])}</span>
+          <span className="sub">
+            <span className="delta down">+0.3pp vs LW</span>
+            <span>{ghs(k.par7Amt[fleet])}</span>
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">Active riders / bikes</span>
+          <span className="val">{k.activeRiders[fleet]}</span>
+          <span className="sub">
+            <span className="delta flat">flat WoW</span>
+            <span>{k.totalBikes[fleet]} total fleet</span>
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">Suspense GL balance</span>
+          <span className="val">{ghs(k.suspenseAmt[fleet])}</span>
+          <span className="sub">
+            <span className="delta up">−12% WoW</span>
+            <span>{k.suspenseCnt[fleet]} items</span>
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">Bikes in recovery</span>
+          <span className="val">{k.churnedRiders[fleet]}</span>
+          <span className="sub">
+            <span className="delta flat">stable</span>
+            <span>recoveries {ghs(k.recoveriesMTD[fleet])} MTD</span>
+          </span>
+        </div>
+      </div>
+
+      <div className="dash-grid" style={{marginBottom: '16px'}}>
+        <div className="panel">
+          <div className="ph">
+            <h3>Completeness &amp; existence check</h3>
+            <span className="meta">three-way recon vs Wahu OS · {FLEET_LABELS[fleet]}</span>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr><th>Check</th><th>Wahu Fleet</th><th>TSA Fleet</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {COMPLETENESS_ROWS.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.name}</td>
+                  <td className="num">{r.wf}</td>
+                  <td className="num">{r.tsa}</td>
+                  <td>
+                    {r.ok === 'good' && <span className="tag green">OK</span>}
+                    {r.ok === 'warn' && <span className="tag amber">1 GAP</span>}
+                    {r.ok === 'neutral' && <span className="tag" style={{background:'var(--line-soft)', color:'var(--muted)'}}>—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel">
+          <div className="ph">
+            <h3>Fleet split — active bikes</h3>
+            <span className="meta">source: Wahu OS bike inventory</span>
+          </div>
+          <Donut wf={k.activeRiders.wf} tsa={k.activeRiders.tsa} />
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="sh">
+          <h2>Suspense GL · ageing strip</h2>
+          <span className="nt">held until matched to a rider · no refunds</span>
+        </div>
+        <div className="ageing-strip">
+          {SUSPENSE_AGEING.map((a, i) => (
+            <div key={i} className={"age-cell " + (a.status === 'warn' ? 'warn' : a.status === 'alert' ? 'alert' : '')}>
+              <span className="age-lbl">{a.age}</span>
+              <span className="age-val">{ghs(a.amt)}</span>
+              <span className="age-cnt">{a.count} items</span>
+            </div>
+          ))}
+          <div className="age-cell" style={{background: 'var(--lime)'}}>
+            <span className="age-lbl">Total suspense</span>
+            <span className="age-val">{ghs(KPI_DATA.suspenseAmt.all)}</span>
+            <span className="age-cnt">{KPI_DATA.suspenseCnt.all} items · 2 to escalate</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="dual-panel">
+        <div className="panel">
+          <div className="ph">
+            <h3>Top riders by arrears</h3>
+            <span className="meta">{FLEET_LABELS[fleet]} · sorted by days past due</span>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr><th>Rider</th><th>Fleet</th><th>Days</th><th>Owed</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {filteredArrears.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.rider}<div style={{fontFamily:'IBM Plex Mono', fontSize:'11px', color:'var(--muted)'}}>{r.bike}</div></td>
+                  <td><span className={"tag " + r.fleet}>{r.fleet.toUpperCase()}</span></td>
+                  <td className="num">{r.days}</td>
+                  <td className="num">{ghs(r.amt)}</td>
+                  <td><span className={"tag " + r.flag}>{r.action}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel">
+          <div className="ph">
+            <h3>Today's exception queue</h3>
+            <span className="meta">{EXCEPTIONS.length} items · auto-triaged by Claude</span>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr><th>Txn id</th><th>Sender</th><th>Amount</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+              {EXCEPTIONS.map((e, i) => (
+                <tr key={i}>
+                  <td className="num">{e.txn}</td>
+                  <td className="num">{e.sender}</td>
+                  <td className="num">{ghs(e.amt)}</td>
+                  <td>{e.reason}<div style={{marginTop:'3px'}}><span className={"tag " + (e.conf === 'high' ? 'green' : 'amber')}>{e.conf} confidence</span></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------- REPORTS VIEW */
+function ReportsView({ fleet, setFleet, onDownload, downloading }) {
+  const [periodA, setPeriodA] = useState('Week 18 · 12–18 May 2026');
+  const [periodB, setPeriodB] = useState('Month-to-date · May 2026');
+  const [fleetA, setFleetA] = useState(fleet === 'all' ? 'both' : fleet);
+  const [fleetB, setFleetB] = useState(fleet === 'all' ? 'both' : fleet);
+
+  // Keep local fleet selectors in sync with the top filter when it changes.
+  useEffect(() => {
+    if (fleet !== 'all') {
+      setFleetA(fleet);
+      setFleetB(fleet);
+    }
+  }, [fleet]);
+
+  return (
+    <>
+      <div className="section">
+        <div className="sh">
+          <h2>Download reports</h2>
+          <span className="nt">Both reports respect the fleet filter — set it at the top, or override per report.</span>
+        </div>
+
+        <div className="reports-grid">
+          {/* COLLECTIONS REPORT A */}
+          <div className="report-card">
+            <div className="content">
+              <span className="sub">Report A &middot; active billing</span>
+              <h3>Collections Report</h3>
+              <div className="what">
+                <b>What's in.</b> Riders inside their 70-week contract — invoice live, bike deployed, status Active or Immobilised. Includes collection rate, PAR buckets, completeness &amp; existence, Hero App share. Excludes churned riders and suspense items.
+              </div>
+              <div className="form-row">
+                <div className="form-field">
+                  <label>Period</label>
+                  <select value={periodA} onChange={e => setPeriodA(e.target.value)}>
+                    <option>Week 18 · 12–18 May 2026</option>
+                    <option>Week 17 · 05–11 May 2026</option>
+                    <option>Week 16 · 28 Apr – 04 May 2026</option>
+                    <option>Month-to-date · May 2026</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Fleet</label>
+                  <select value={fleetA} onChange={e => setFleetA(e.target.value)}>
+                    <option value="both">Both fleets (side-by-side)</option>
+                    <option value="wf">Wahu Fleet only</option>
+                    <option value="tsa">TSA Fleet only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="actions">
+                <div className="file-meta">
+                  Output: <b>PDF + XLSX</b> · est. 180 KB ·  ~9 sections
+                </div>
+                <button className="btn-secondary" onClick={() => onDownload('Collections Report — ' + periodA + ' — ' + (fleetA === 'both' ? 'Both' : fleetA.toUpperCase()), 'XLSX')}>
+                  Excel
+                </button>
+                <button className="btn-primary" onClick={() => onDownload('Collections Report — ' + periodA + ' — ' + (fleetA === 'both' ? 'Both' : fleetA.toUpperCase()), 'PDF')} disabled={downloading}>
+                  {downloading ? 'Generating…' : 'Download PDF'} <span className="arrow">↓</span>
+                </button>
+              </div>
+            </div>
+            <div className="corner">
+              <span className="lt">A</span>
+              <span className="sm">Active</span>
+              <span className="sm">Billing</span>
+            </div>
+          </div>
+
+          {/* RECOVERY REPORT B */}
+          <div className="report-card">
+            <div className="content">
+              <span className="sub">Report B &middot; aged debt &middot; churned riders</span>
+              <h3>Recovery Report</h3>
+              <div className="what">
+                <b>What's in.</b> Riders post-repossession or PAR 90 — bike already at the yard, residual pursued in-house, with debt collector, or through legal. Includes ageing, write-offs, recoveries, cases at PAR 90. <b>Loss ownership noted by fleet</b> (WF hits Wahu P&amp;L; TSA reported to TSA).
+              </div>
+              <div className="form-row">
+                <div className="form-field">
+                  <label>Period</label>
+                  <select value={periodB} onChange={e => setPeriodB(e.target.value)}>
+                    <option>Month-to-date · May 2026</option>
+                    <option>April 2026</option>
+                    <option>Year-to-date 2026</option>
+                    <option>Trailing 12 months</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Fleet</label>
+                  <select value={fleetB} onChange={e => setFleetB(e.target.value)}>
+                    <option value="both">Both fleets (side-by-side)</option>
+                    <option value="wf">Wahu Fleet only</option>
+                    <option value="tsa">TSA Fleet only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="actions">
+                <div className="file-meta">
+                  Output: <b>PDF + XLSX</b> · est. 240 KB ·  ~7 sections
+                </div>
+                <button className="btn-secondary" onClick={() => onDownload('Recovery Report — ' + periodB + ' — ' + (fleetB === 'both' ? 'Both' : fleetB.toUpperCase()), 'XLSX')}>
+                  Excel
+                </button>
+                <button className="btn-primary" onClick={() => onDownload('Recovery Report — ' + periodB + ' — ' + (fleetB === 'both' ? 'Both' : fleetB.toUpperCase()), 'PDF')} disabled={downloading}>
+                  {downloading ? 'Generating…' : 'Download PDF'} <span className="arrow">↓</span>
+                </button>
+              </div>
+            </div>
+            <div className="corner">
+              <span className="lt">B</span>
+              <span className="sm">Recovery</span>
+              <span className="sm">Aged debt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="panel">
+          <div className="ph">
+            <h3>Recent downloads</h3>
+            <span className="meta">last 7 days · audit trail</span>
+          </div>
+          <div className="recent-list">
+            {RECENT_DOWNLOADS.map((d, i) => (
+              <div key={i} className="recent-item">
+                <span className="when">{d.when}</span>
+                <span className="what">{d.what}</span>
+                <span className="who">{d.fmt} · {d.size} · {d.by}</span>
+                <button onClick={() => onDownload(d.what + ' (re-download)', d.fmt)}>re-download</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ============================================================ APP */
+function App() {
+  const [tab, setTab] = useState('upload');
+  const [fleet, setFleet] = useState('all');
+  const [uploads, setUploads] = useState({});
+  const [isRunning, setIsRunning] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [lastRunAt, setLastRunAt] = useState('Yesterday · 11:42 GMT');
+
+  function flashToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2400);
+  }
+
+  function onRun() {
+    setIsRunning(true);
+    flashToast('Reconciliation queued · processing 6 sources');
+    setTimeout(() => {
+      setIsRunning(false);
+      setLastRunAt('Just now · 09:14 GMT');
+      setTab('dashboard');
+      flashToast('Reconciliation complete · 96.2% match rate · 14 items in suspense');
+    }, 2400);
+  }
+
+  function onDownload(name, fmt) {
+    setDownloading(true);
+    flashToast(`Generating ${fmt} · ${name}`);
+    setTimeout(() => {
+      setDownloading(false);
+      flashToast(`Downloaded · ${name}.${fmt.toLowerCase()}`);
+    }, 1400);
+  }
+
+  const uploadedCount = Object.values(uploads).filter(u => u.status === 'uploaded').length;
+
+  return (
+    <div className="app">
+      <TopBar fleet={fleet} setFleet={setFleet} />
+      <TabStrip
+        tab={tab}
+        setTab={setTab}
+        uploadedCount={uploadedCount}
+        totalSources={SOURCES.length}
+        lastRunAt={lastRunAt}
+      />
+      <div className="main">
+        {tab === 'upload' && (
+          <UploadView
+            uploads={uploads}
+            setUploads={setUploads}
+            onRun={onRun}
+            isRunning={isRunning}
+          />
+        )}
+        {tab === 'dashboard' && (
+          <DashboardView fleet={fleet} />
+        )}
+        {tab === 'reports' && (
+          <ReportsView
+            fleet={fleet}
+            setFleet={setFleet}
+            onDownload={onDownload}
+            downloading={downloading}
+          />
+        )}
+      </div>
+      {toast && (
+        <div className="toast">
+          <span className="check">✓</span>
+          <span className="msg">{toast}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+</script>
+</body>
+</html>
