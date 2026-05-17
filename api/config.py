@@ -1,5 +1,6 @@
 """Configuration management."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import List
 
@@ -48,8 +49,16 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "dev-secret-key"
 
-    # CORS
+    # CORS — accepts a comma-separated list from the CORS_ORIGINS env var,
+    # e.g. "http://localhost:3000,https://collections.wahu.me"
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _split_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v
 
     # Scheduler
     SCHEDULER_TIMEZONE: str = "Africa/Accra"
