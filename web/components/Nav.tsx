@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -31,12 +30,13 @@ export function Nav() {
     <aside className="w-64 shrink-0 bg-nav-600 flex flex-col text-white">
       <div className="px-5 py-5 flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-nav-700 flex items-center justify-center shrink-0 ring-1 ring-white/5">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/wahu-logo-dark.svg"
             alt="Wahu"
             width={28}
             height={28}
-            priority
+            className="w-7 h-7"
           />
         </div>
         <div>
