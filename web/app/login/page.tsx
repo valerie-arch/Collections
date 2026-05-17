@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { WahuLogo } from "@/components/WahuLogo";
 
 function LoginInner() {
   const search = useSearchParams();
@@ -42,14 +43,7 @@ function LoginInner() {
         {/* Brand mark */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center mb-5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/wahu-logo-dark.svg"
-              alt="Wahu"
-              width={72}
-              height={72}
-              className="w-[72px] h-[72px]"
-            />
+            <WahuLogo size={72} />
           </div>
           <h1 className="text-4xl font-display tracking-tightest text-white">
             Welcome to Wahu
