@@ -26,7 +26,9 @@ class Settings(BaseSettings):
 
     # Google Drive — folder holding Zoho invoice CSV exports
     ZOHO_INVOICES_DRIVE_FOLDER_ID: str = "19fd10Y4AZ8evazSh6SKFTurRam-vPYM1"
-    GOOGLE_SERVICE_ACCOUNT_FILE: str = ""  # path to service account JSON
+    # Either a path to a JSON file (local dev) OR raw JSON content (Railway/prod).
+    GOOGLE_SERVICE_ACCOUNT_FILE: str = ""
+    GOOGLE_SERVICE_ACCOUNT_JSON: str = ""
     DRIVE_INVOICE_FILENAME_FILTER: str = "Invoice"  # only sync titles containing this
 
     # Daily activities report — archived to this Drive folder at 18:00 Africa/Accra

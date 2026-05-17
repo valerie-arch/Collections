@@ -30,15 +30,20 @@ class DriveFile:
 
 
 class DriveClient:
-    def __init__(self, service_account_file: str) -> None:
+    def __init__(self, *, service_account_file: str = "", service_account_info: Optional[dict] = None) -> None:
         # Imported lazily so the platform still boots when the deps aren't
         # installed yet or no service account is configured.
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
 
-        creds = service_account.Credentials.from_service_account_file(
-            service_account_file, scopes=SCOPES
-        )
+        if service_account_info:
+            creds = service_account.Credentials.from_service_account_info(
+                service_account_info, scopes=SCOPES
+            )
+        else:
+            creds = service_account.Credentials.from_service_account_file(
+                service_account_file, scopes=SCOPES
+            )
         self._service = build("drive", "v3", credentials=creds, cache_discovery=False)
 
     def list_folder(
@@ -122,11 +127,30 @@ class DriveClient:
 
 @lru_cache(maxsize=1)
 def get_drive_client() -> DriveClient:
-    """Lazy-initialized Drive client. Raises if no service-account file configured."""
+    """Lazy-initialized Drive client.
+
+    Prefers GOOGLE_SERVICE_ACCOUNT_JSON (raw JSON string from env, for hosted
+    environments like Railway). Falls back to GOOGLE_SERVICE_ACCOUNT_FILE
+    (filesystem path, used in local dev).
+    """
+    import json
+
+    raw = (settings.GOOGLE_SERVICE_ACCOUNT_JSON or "").strip()
+    if raw:
+        try:
+            info = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON: {e}"
+            ) from e
+        return DriveClient(service_account_info=info)
+
     path = settings.GOOGLE_SERVICE_ACCOUNT_FILE
-    if not path or not Path(path).exists():
-        raise RuntimeError(
-            "Google Drive sync needs GOOGLE_SERVICE_ACCOUNT_FILE pointing at a "
-            "valid service-account JSON. See docs/google-drive-setup.md."
-        )
-    return DriveClient(path)
+    if path and Path(path).exists():
+        return DriveClient(service_account_file=path)
+
+    raise RuntimeError(
+        "Google Drive sync needs either GOOGLE_SERVICE_ACCOUNT_JSON (raw JSON, "
+        "for hosted envs) or GOOGLE_SERVICE_ACCOUNT_FILE (path to a JSON file, "
+        "for local dev). See docs/google-drive-setup.md."
+    )
