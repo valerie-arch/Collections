@@ -76,3 +76,70 @@ def sync_invoices(
         "downloaded": downloaded,
         "skipped": skipped,
     }
+
+
+# ----- Payment statements (MoMo / bank / cash) -----
+
+PAYMENTS_LOCAL_DIR = Path("sample_inputs/payments")
+PAYMENTS_STATE_FILE = PAYMENTS_LOCAL_DIR / ".sync_state.json"
+
+
+def _load_payments_state() -> dict[str, str]:
+    if not PAYMENTS_STATE_FILE.exists():
+        return {}
+    try:
+        return json.loads(PAYMENTS_STATE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_payments_state(state: dict[str, str]) -> None:
+    PAYMENTS_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    PAYMENTS_STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True))
+
+
+def sync_payments(folder_id: Optional[str] = None) -> dict:
+    """Pull every CSV/XLSX from the payments Drive folder.
+
+    Returns a summary: {downloaded, skipped, total, files}.
+    """
+    folder_id = folder_id or settings.PAYMENTS_DRIVE_FOLDER_ID
+    PAYMENTS_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+
+    client = get_drive_client()
+    files = client.list_folder(folder_id)
+    accepted_mime = {
+        "text/csv",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/octet-stream",  # some MoMo exports get tagged this way
+    }
+    files = [
+        f for f in files
+        if f.mime_type in accepted_mime
+        or f.name.lower().endswith((".csv", ".xlsx", ".xls"))
+    ]
+
+    state = _load_payments_state()
+    downloaded: list[str] = []
+    skipped: list[str] = []
+
+    for f in files:
+        local_path = PAYMENTS_LOCAL_DIR / _safe_filename(f.name)
+        if state.get(f.id) == f.modified_time and local_path.exists():
+            skipped.append(f.name)
+            continue
+        logger.info("downloading payment file %s (%s bytes)", f.name, f.size_bytes)
+        data = client.download_file(f.id)
+        local_path.write_bytes(data)
+        state[f.id] = f.modified_time
+        downloaded.append(f.name)
+
+    _save_payments_state(state)
+
+    return {
+        "folder_id": folder_id,
+        "total": len(files),
+        "downloaded": downloaded,
+        "skipped": skipped,
+    }

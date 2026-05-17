@@ -26,6 +26,10 @@ class Settings(BaseSettings):
 
     # Google Drive — folder holding Zoho invoice CSV exports
     ZOHO_INVOICES_DRIVE_FOLDER_ID: str = "19fd10Y4AZ8evazSh6SKFTurRam-vPYM1"
+    # Drive folder holding rider payment files (MoMo / bank / cash statements)
+    PAYMENTS_DRIVE_FOLDER_ID: str = "1CJ3gMVNNpr50P5aKy8Y-sA00OC9xFdpD"
+    # Only reconcile payments dated on or after this — Zoho already has earlier ones.
+    PAYMENTS_CUTOFF_DATE: str = "2026-05-14"
     # Either a path to a JSON file (local dev) OR raw JSON content (Railway/prod).
     GOOGLE_SERVICE_ACCOUNT_FILE: str = ""
     GOOGLE_SERVICE_ACCOUNT_JSON: str = ""

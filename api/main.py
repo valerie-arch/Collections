@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from api.config import settings
 from api.database import init_db, get_db
-from api.routers import activities, agencies, drives, exceptions, health, quickbooks, reports, runs, suspense, trends
+from api.routers import activities, agencies, drives, exceptions, health, payments, quickbooks, reports, runs, suspense, trends
 from api.scheduler import init_scheduler
 
 
@@ -49,6 +49,7 @@ app.include_router(trends.router, prefix="/api/trends", tags=["Trends"])
 app.include_router(suspense.router, prefix="/api/suspense", tags=["Suspense"])
 app.include_router(quickbooks.router, prefix="/api/quickbooks", tags=["QuickBooks"])
 app.include_router(activities.router, prefix="/api/activities", tags=["Activities"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 
 
 @app.get("/")

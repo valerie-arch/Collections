@@ -200,6 +200,76 @@ export const api = {
     request<SuspenseItem>(`/api/suspense/${id}/reopen`, { method: "POST" }),
   deleteSuspense: (id: string) =>
     request<{ removed: boolean }>(`/api/suspense/${id}`, { method: "DELETE" }),
+
+  // Payment reconciliation
+  paymentsSync: () =>
+    request<{
+      ok: boolean;
+      folder_id: string;
+      total: number;
+      downloaded: string[];
+      skipped: string[];
+    }>(`/api/payments/sync`, { method: "POST" }),
+  paymentsReconcile: (cutoff?: string) =>
+    request<PaymentReconcileResult>(
+      `/api/payments/reconcile${cutoff ? `?cutoff=${cutoff}` : ""}`,
+    ),
+  paymentsScheduleUrl: (cutoff?: string) =>
+    `${BASE}/api/payments/schedule.xlsx${cutoff ? `?cutoff=${cutoff}` : ""}`,
+  paymentsPushSuspense: (cutoff?: string) =>
+    request<{ ok: boolean; pushed: number; skipped: number; total_unmatched: number }>(
+      `/api/payments/push-suspense${cutoff ? `?cutoff=${cutoff}` : ""}`,
+      { method: "POST" },
+    ),
+};
+
+export type MatchedPayment = {
+  source_file: string;
+  line_no: number;
+  payment_date: string | null;
+  amount_ghs: number;
+  channel: string;
+  raw_name: string;
+  msisdn: string | null;
+  reference: string;
+  rider_id: string;
+  rider_name: string;
+  method: string;
+  confidence: number;
+  unapplied_ghs: number;
+  allocations: {
+    invoice_id: string;
+    invoice_number: string;
+    applied_ghs: number;
+    balance_before_ghs: number;
+    balance_after_ghs: number;
+  }[];
+};
+
+export type UnmatchedPayment = {
+  source_file: string;
+  line_no: number;
+  payment_date: string | null;
+  amount_ghs: number;
+  channel: string;
+  raw_name: string;
+  msisdn: string | null;
+  reference: string;
+  best_guess_rider_name: string;
+  best_guess_confidence: number;
+  reason: string;
+};
+
+export type PaymentReconcileResult = {
+  cutoff_date: string;
+  invoices_corpus_size: number;
+  riders_in_master: number;
+  total_payments: number;
+  in_scope_payments: number;
+  total_matched_amount_ghs: number;
+  total_unmatched_amount_ghs: number;
+  matched: MatchedPayment[];
+  unmatched: UnmatchedPayment[];
 };
 
 export type ActivityAction =

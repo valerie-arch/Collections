@@ -11,6 +11,7 @@ import {
   Wallet,
   Calculator,
   ClipboardList,
+  Banknote,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -19,6 +20,7 @@ const items = [
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/portfolio", label: "Portfolio trends", icon: LineChart },
   { href: "/activities", label: "Activities", icon: ClipboardList },
+  { href: "/payments", label: "Payments", icon: Banknote },
   { href: "/suspense", label: "Suspense", icon: Wallet },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle },
   { href: "/quickbooks", label: "QuickBooks", icon: Calculator },
