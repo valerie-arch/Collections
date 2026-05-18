@@ -53,6 +53,17 @@ def get(item_id: str) -> Optional[dict]:
     return _load().get(item_id)
 
 
+def find_by_source_key(source_key: str) -> Optional[dict]:
+    """Return the existing suspense item matching a source_key, or None."""
+    if not source_key:
+        return None
+    with _LOCK:
+        for rec in _load().values():
+            if rec.get("source_key") == source_key:
+                return rec
+    return None
+
+
 def create(
     *,
     channel: str,
@@ -61,13 +72,32 @@ def create(
     received_at: str,
     msisdn: Optional[str] = None,
     note: Optional[str] = None,
+    source_key: Optional[str] = None,
 ) -> dict:
+    """Create a new suspense item.
+
+    If `source_key` is provided and an existing item already carries it,
+    return that existing item instead of creating a duplicate. This is how
+    repeated runs of the Payments reconcile flow stay idempotent.
+    """
     if amount_ghs <= 0:
         raise ValueError("amount_ghs must be positive")
     if not channel_reference.strip():
         raise ValueError("channel_reference required")
+
+    key = (source_key or "").strip() or None
+    if key is not None:
+        existing = find_by_source_key(key)
+        if existing is not None:
+            return existing
+
     with _LOCK:
         data = _load()
+        # Double-check inside the lock to close the race window.
+        if key is not None:
+            for rec in data.values():
+                if rec.get("source_key") == key:
+                    return rec
         sid = uuid.uuid4().hex
         rec = {
             "id": sid,
@@ -83,6 +113,7 @@ def create(
             "resolved_invoice_number": None,
             "resolved_at": None,
             "resolution_note": None,
+            "source_key": key,
             "created_at": _now(),
         }
         data[sid] = rec

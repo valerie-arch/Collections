@@ -68,17 +68,31 @@ export function PaymentsClient({ defaultCutoff }: { defaultCutoff: string }) {
     });
   };
 
+  const newToPush = result
+    ? result.unmatched.filter((u) => !u.in_suspense).length
+    : 0;
+
   const pushSuspense = () => {
-    if (!result || result.unmatched.length === 0) return;
-    if (!confirm(`Push ${result.unmatched.length} unmatched payment(s) to Suspense?`)) return;
+    if (!result) return;
+    if (newToPush === 0) {
+      setMsg({
+        kind: "info",
+        text: "All unmatched payments are already in Suspense — nothing new to push.",
+      });
+      return;
+    }
+    if (!confirm(`Push ${newToPush} new unmatched payment(s) to Suspense?`)) return;
     setMsg(null);
     start(async () => {
       try {
         const r = await api.paymentsPushSuspense(cutoff);
-        setMsg({
-          kind: "ok",
-          text: `Pushed ${r.pushed} of ${r.total_unmatched} to Suspense (${r.skipped} skipped).`,
-        });
+        const parts = [`Pushed ${r.pushed} new`];
+        if (r.already_in_suspense) parts.push(`${r.already_in_suspense} already there`);
+        if (r.errors) parts.push(`${r.errors} errors`);
+        setMsg({ kind: "ok", text: `${parts.join(" · ")}. Refresh to update the table.` });
+        // Re-fetch so the in_suspense badges update.
+        const refreshed = await api.paymentsReconcile(cutoff);
+        setResult(refreshed);
       } catch (e) {
         setMsg({ kind: "err", text: e instanceof Error ? e.message : "Push failed" });
       }
@@ -121,9 +135,20 @@ export function PaymentsClient({ defaultCutoff }: { defaultCutoff: string }) {
             </a>
           )}
           {result && result.unmatched.length > 0 && (
-            <button onClick={pushSuspense} disabled={pending} className="btn-secondary">
+            <button
+              onClick={pushSuspense}
+              disabled={pending || newToPush === 0}
+              className="btn-secondary"
+              title={
+                newToPush === 0
+                  ? "All unmatched are already in Suspense"
+                  : `Push ${newToPush} new payment(s) to Suspense`
+              }
+            >
               <Send className="w-3.5 h-3.5" />
-              Push {result.unmatched.length} to Suspense
+              {newToPush === 0
+                ? "All in Suspense"
+                : `Push ${newToPush} to Suspense`}
             </button>
           )}
         </div>
@@ -313,19 +338,23 @@ export function PaymentsClient({ defaultCutoff }: { defaultCutoff: string }) {
                     <th>Amount</th>
                     <th>Phone</th>
                     <th>Best-guess rider</th>
+                    <th>Status</th>
                     <th>Reason</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.unmatched.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center text-ink-fade py-10">
+                      <td colSpan={8} className="text-center text-ink-fade py-10">
                         Nothing unmatched.
                       </td>
                     </tr>
                   )}
                   {result.unmatched.map((u, i) => (
-                    <tr key={`${u.source_file}-${u.line_no}-${i}`}>
+                    <tr
+                      key={`${u.source_file}-${u.line_no}-${i}`}
+                      className={u.in_suspense ? "opacity-60" : ""}
+                    >
                       <td className="font-mono text-xs">{u.payment_date ?? "—"}</td>
                       <td>
                         <div className="text-sm font-medium text-ink">{u.raw_name || "—"}</div>
@@ -348,6 +377,13 @@ export function PaymentsClient({ defaultCutoff }: { defaultCutoff: string }) {
                           </>
                         ) : (
                           <span className="text-ink-fade text-xs">none</span>
+                        )}
+                      </td>
+                      <td>
+                        {u.in_suspense ? (
+                          <span className="badge-success">In Suspense</span>
+                        ) : (
+                          <span className="badge-warning">Pending push</span>
                         )}
                       </td>
                       <td className="text-[11px] text-ink-fade">{u.reason}</td>

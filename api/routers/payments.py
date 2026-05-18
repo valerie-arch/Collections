@@ -51,6 +51,16 @@ def sync_drive() -> dict:
 
 
 def _serialize_result(result) -> dict:
+    # Tag each unmatched payment with whether it's already in the Suspense queue
+    # so the UI can show "already pushed" instead of looking like a duplicate.
+    already_keys: set[str] = set()
+    if result.unmatched:
+        existing = {it.get("source_key") for it in suspense_store.list_items() if it.get("source_key")}
+        for u in result.unmatched:
+            k = f"payments:{u.payment.source_file}#{u.payment.line_no}"
+            if k in existing:
+                already_keys.add(k)
+
     return {
         "cutoff_date": result.cutoff_date.isoformat(),
         "invoices_corpus_size": result.invoices_corpus_size,
@@ -100,6 +110,10 @@ def _serialize_result(result) -> dict:
                 "best_guess_rider_name": u.best_guess_rider_name,
                 "best_guess_confidence": round(u.best_guess_confidence, 3),
                 "reason": u.reason,
+                "in_suspense": (
+                    f"payments:{u.payment.source_file}#{u.payment.line_no}"
+                    in already_keys
+                ),
             }
             for u in result.unmatched
         ],
@@ -139,9 +153,18 @@ def download_schedule(cutoff: Optional[str] = Query(None)):
     )
 
 
+def _source_key(p) -> str:
+    """Stable fingerprint per payment row. Used to dedupe across re-runs."""
+    return f"payments:{p.source_file}#{p.line_no}"
+
+
 @router.post("/push-suspense")
 def push_unmatched_to_suspense(cutoff: Optional[str] = Query(None)) -> dict:
-    """Reconcile and push every unmatched payment into the Suspense queue."""
+    """Reconcile and push every unmatched payment into the Suspense queue.
+
+    Idempotent: each payment row is fingerprinted by `source_file#line_no`,
+    so re-running this never creates duplicate suspense entries.
+    """
     cutoff_date = _parse_cutoff(cutoff)
     result = reconcile_payments(
         payments_folder=PAYMENTS_LOCAL_DIR,
@@ -150,13 +173,15 @@ def push_unmatched_to_suspense(cutoff: Optional[str] = Query(None)) -> dict:
     )
 
     created = 0
-    skipped = 0
+    already = 0
+    errors = 0
     for u in result.unmatched:
         p = u.payment
-        # Skip ones already pushed — match on channel_reference uniqueness.
-        # If we wanted strict idempotency we'd dedupe upstream; for now skip
-        # empty refs and let the user inspect.
         ref = (p.reference or f"{p.source_file}#{p.line_no}").strip()
+        key = _source_key(p)
+
+        # Check upfront so the response distinguishes new vs deduped.
+        existed_before = suspense_store.find_by_source_key(key) is not None
         try:
             suspense_store.create(
                 channel=p.channel or "unknown",
@@ -165,10 +190,20 @@ def push_unmatched_to_suspense(cutoff: Optional[str] = Query(None)) -> dict:
                 received_at=p.date.isoformat() if p.date else date.today().isoformat(),
                 msisdn=p.msisdn,
                 note=f"Auto-pushed from payments reconcile · sender: {p.raw_name or '—'}",
+                source_key=key,
             )
-            created += 1
+            if existed_before:
+                already += 1
+            else:
+                created += 1
         except Exception as e:
             logger.warning("could not push to suspense: %s", e)
-            skipped += 1
+            errors += 1
 
-    return {"ok": True, "pushed": created, "skipped": skipped, "total_unmatched": len(result.unmatched)}
+    return {
+        "ok": True,
+        "pushed": created,
+        "already_in_suspense": already,
+        "errors": errors,
+        "total_unmatched": len(result.unmatched),
+    }
