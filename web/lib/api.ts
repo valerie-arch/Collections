@@ -69,6 +69,9 @@ export const api = {
       total: number;
       downloaded: string[];
       skipped: string[];
+      subscriptions_folder_id?: string;
+      subscriptions_synced?: number;
+      subscriptions_error?: string | null;
     }>(`/api/drives/sync`, { method: "POST" }),
   driveStatus: () =>
     request<{
@@ -217,7 +220,13 @@ export const api = {
   paymentsScheduleUrl: (cutoff?: string) =>
     `${BASE}/api/payments/schedule.xlsx${cutoff ? `?cutoff=${cutoff}` : ""}`,
   paymentsPushSuspense: (cutoff?: string) =>
-    request<{ ok: boolean; pushed: number; skipped: number; total_unmatched: number }>(
+    request<{
+      ok: boolean;
+      pushed: number;
+      already_in_suspense: number;
+      errors: number;
+      total_unmatched: number;
+    }>(
       `/api/payments/push-suspense${cutoff ? `?cutoff=${cutoff}` : ""}`,
       { method: "POST" },
     ),
@@ -258,6 +267,7 @@ export type UnmatchedPayment = {
   best_guess_rider_name: string;
   best_guess_confidence: number;
   reason: string;
+  in_suspense: boolean;
 };
 
 export type PaymentReconcileResult = {

@@ -68,8 +68,25 @@ def _first(row: dict[str, str], keys: tuple[str, ...]) -> str | None:
     return None
 
 
+# Invoice statuses that mean "this invoice never happened" — must be
+# excluded from every collections calculation (invoiced/collected/outstanding
+# /ageing/risk band). Zoho uses "void"; "draft" is also a non-issued state.
+_EXCLUDE_STATUSES = {"void", "voided", "draft"}
+
+
+def is_void(inv: InvoiceRow) -> bool:
+    """Voided / draft invoices must never count in collections math."""
+    return (inv.status or "").strip().lower() in _EXCLUDE_STATUSES
+
+
 def parse_zoho_invoice_csv(path: str | Path) -> list[InvoiceRow]:
-    """Read one Zoho invoice CSV and return one InvoiceRow per Invoice ID."""
+    """Read one Zoho invoice CSV and return one InvoiceRow per Invoice ID.
+
+    Voided/draft rows are RETAINED here (with their status preserved) so that
+    cross-file dedupe in parse_invoice_folder can let a newer "void" line
+    correctly override an older "open" one. Callers that don't dedupe across
+    files (e.g. the payments engine) should filter with `is_void()` themselves.
+    """
     path = Path(path)
     by_invoice: dict[str, InvoiceRow] = {}
 
@@ -80,13 +97,20 @@ def parse_zoho_invoice_csv(path: str | Path) -> list[InvoiceRow]:
             if not invoice_id:
                 continue
 
+            status = (_first(raw, _STATUS) or "").strip().lower()
             line_total = _to_money(_first(raw, _LINE_TOTAL) or _first(raw, _TOTAL))
 
             if invoice_id in by_invoice:
-                # Same invoice, additional line item — accumulate the line total.
-                by_invoice[invoice_id].total += line_total
-                # The status/balance/payment fields are identical across rows
-                # of the same invoice; first-seen wins.
+                existing = by_invoice[invoice_id]
+                # If a later line says void/draft, mark the invoice as such.
+                if status in _EXCLUDE_STATUSES:
+                    existing.status = status
+                    existing.total = Decimal("0")
+                    existing.balance = Decimal("0")
+                    continue
+                # Otherwise accumulate the line total (multi-line invoices).
+                if existing.status not in _EXCLUDE_STATUSES:
+                    existing.total += line_total
                 continue
 
             by_invoice[invoice_id] = InvoiceRow(
@@ -96,9 +120,9 @@ def parse_zoho_invoice_csv(path: str | Path) -> list[InvoiceRow]:
                 customer_name=_first(raw, _CUSTOMER_NAME) or "",
                 invoice_date=_to_date(_first(raw, _INVOICE_DATE)) or date.today(),
                 due_date=_to_date(_first(raw, _DUE_DATE)),
-                status=(_first(raw, _STATUS) or "").lower(),
-                total=line_total,
-                balance=_to_money(_first(raw, _BALANCE)),
+                status=status,
+                total=Decimal("0") if status in _EXCLUDE_STATUSES else line_total,
+                balance=Decimal("0") if status in _EXCLUDE_STATUSES else _to_money(_first(raw, _BALANCE)),
                 last_payment_date=_to_date(_first(raw, _LAST_PAYMENT)),
                 is_completed=_to_bool(_first(raw, _COMPLETED)),
                 is_churned=_to_bool(_first(raw, _CHURNED)),
@@ -187,4 +211,6 @@ def parse_invoice_folder(folder: str | Path) -> list[InvoiceRow]:
     for csv_path in sorted(folder.glob("*.csv")):
         for row in parse_zoho_invoice_csv(csv_path):
             deduped[row.invoice_id] = row
-    return list(deduped.values())
+    # Drop voided / draft invoices after dedupe so a newer "void" line in a
+    # later file correctly removes an older "open" line from earlier exports.
+    return [inv for inv in deduped.values() if not is_void(inv)]

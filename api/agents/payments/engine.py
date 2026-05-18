@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Iterable
 
 from api.agents.collections_report.engine import InvoiceRow
-from api.agents.collections_report.parsers import parse_zoho_invoice_csv
+from api.agents.collections_report.parsers import is_void, parse_zoho_invoice_csv
 
 from .matcher import RiderMatch, RiderRecord, match_payments
 from .parser import PaymentRow, parse_folder
@@ -109,15 +109,19 @@ def reconcile_payments(
         if p.date is None or p.date >= cutoff_date
     ]
 
-    # 3) Build invoice corpus + rider master
-    invoices: list[InvoiceRow] = []
+    # 3) Build invoice corpus + rider master.
+    # Dedup across files by invoice_id, then drop voided/draft invoices —
+    # matches the same dedup the Reports page uses.
+    deduped: dict[str, InvoiceRow] = {}
     invoices_path = Path(invoices_folder)
     if invoices_path.exists():
         for f in sorted(invoices_path.glob("*.csv")):
             try:
-                invoices.extend(parse_zoho_invoice_csv(f))
+                for inv in parse_zoho_invoice_csv(f):
+                    deduped[inv.invoice_id] = inv
             except Exception:
                 continue
+    invoices: list[InvoiceRow] = [inv for inv in deduped.values() if not is_void(inv)]
     rider_master = _build_rider_master(invoices)
 
     result = ReconcileResult(

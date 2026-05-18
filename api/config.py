@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     # Google Drive — folder holding Zoho invoice CSV exports
     ZOHO_INVOICES_DRIVE_FOLDER_ID: str = "19fd10Y4AZ8evazSh6SKFTurRam-vPYM1"
+    # Separate Drive folder for the Zoho subscriptions export — drives the
+    # Active/Recovery/Completed status filter on the Reports page.
+    ZOHO_SUBSCRIPTIONS_DRIVE_FOLDER_ID: str = "1yjyx07gKnaZteTrYd9elAt26gIvqb3tK"
     # Drive folder holding rider payment files (MoMo / bank / cash statements)
     PAYMENTS_DRIVE_FOLDER_ID: str = "1CJ3gMVNNpr50P5aKy8Y-sA00OC9xFdpD"
     # Only reconcile payments dated on or after this — Zoho already has earlier ones.

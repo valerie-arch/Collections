@@ -87,11 +87,19 @@ class DriveClient:
                 break
         return files
 
-    def download_file(self, file_id: str) -> bytes:
-        """Download raw bytes for a non-Google native file (e.g., a CSV)."""
+    def download_file(self, file_id: str, *, export_mime: Optional[str] = None) -> bytes:
+        """Download a Drive file.
+
+        For non-Google native files (CSV/XLSX uploaded as-is) leaves export_mime
+        as None — uses get_media. For Google native files (Sheets/Docs/Slides)
+        pass an export_mime like "text/csv" — uses export_media.
+        """
         from googleapiclient.http import MediaIoBaseDownload
 
-        request = self._service.files().get_media(fileId=file_id, supportsAllDrives=True)
+        if export_mime:
+            request = self._service.files().export_media(fileId=file_id, mimeType=export_mime)
+        else:
+            request = self._service.files().get_media(fileId=file_id, supportsAllDrives=True)
         buf = io.BytesIO()
         downloader = MediaIoBaseDownload(buf, request)
         done = False

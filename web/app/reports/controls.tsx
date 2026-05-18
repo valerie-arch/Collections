@@ -133,9 +133,15 @@ export function ReportControls({
     start(async () => {
       try {
         const result = await api.driveSync();
+        const subsBit = result.subscriptions_error
+          ? ` Subscriptions: ${result.subscriptions_error}`
+          : ` Subscriptions: ${result.subscriptions_synced ?? 0} synced.`;
         setSyncMsg(
-          `Synced ${result.downloaded.length} new, ${result.skipped.length} up-to-date.`,
+          `Synced ${result.downloaded.length} new, ${result.skipped.length} up-to-date.${subsBit}`,
         );
+        if (result.subscriptions_error) {
+          setSyncErr(result.subscriptions_error);
+        }
         router.refresh();
       } catch (e) {
         setSyncErr(e instanceof Error ? e.message : "sync failed");

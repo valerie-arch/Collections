@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from api.agents.drive_sync import LOCAL_DIR, sync_invoices
+from api.agents.drive_sync import LOCAL_DIR, SUBS_LOCAL_DIR, sync_invoices
 
 router = APIRouter()
 
@@ -25,18 +25,29 @@ def sync_drive() -> dict:
 
 @router.get("/status")
 def drive_status() -> dict:
-    """Show what's currently in the local invoices folder."""
-    files = sorted(LOCAL_DIR.glob("*.csv")) if LOCAL_DIR.exists() else []
+    """Show what's currently in the local invoices + subscriptions folders."""
+    inv_files = sorted(LOCAL_DIR.glob("*.csv")) if LOCAL_DIR.exists() else []
+    subs_files = sorted(SUBS_LOCAL_DIR.glob("zoho_subscriptions*.csv")) if SUBS_LOCAL_DIR.exists() else []
     return {
         "local_folder": str(LOCAL_DIR),
-        "file_count": len(files),
-        "total_size_bytes": sum(p.stat().st_size for p in files),
+        "file_count": len(inv_files),
+        "total_size_bytes": sum(p.stat().st_size for p in inv_files),
         "files": [
             {
                 "name": p.name,
                 "size_bytes": p.stat().st_size,
                 "modified_at": p.stat().st_mtime,
             }
-            for p in files
+            for p in inv_files
+        ],
+        "subscriptions_folder": str(SUBS_LOCAL_DIR),
+        "subscriptions_file_count": len(subs_files),
+        "subscriptions_files": [
+            {
+                "name": p.name,
+                "size_bytes": p.stat().st_size,
+                "modified_at": p.stat().st_mtime,
+            }
+            for p in subs_files
         ],
     }
