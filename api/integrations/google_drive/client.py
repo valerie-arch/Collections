@@ -17,7 +17,11 @@ from api.config import settings
 
 logger = logging.getLogger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+# `drive` (full) is required so the pipeline can upload its XLSX artifacts
+# back to the Collections Data Drive folder. Read paths still work fine with
+# this scope. The service account can only touch folders explicitly shared
+# with it, so the blast radius is limited to those.
+SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 @dataclass

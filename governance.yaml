@@ -1,0 +1,49 @@
+# Wahu Collections — Governance Configuration
+#
+# Three commission / agency-scoring questions are unresolved (per spec
+# Prompt 12). Defaults are sensible but conservative. Uncomment + edit any
+# value below to make it explicit; while a value is commented (or absent),
+# the CLI prints a startup banner reminding the operator that a default
+# is in effect.
+#
+# Code never reads magic constants for these settings — every commission
+# and agency-scoring calculation calls into `collections_v3.governance`.
+
+# ---------------------------------------------------------------------------
+# Q1 — Mid-week agency switch attribution.
+# When a rider's agency assignment changes during a week (e.g. they move
+# from Hortta to TSAC on Wednesday), who gets the collection credit for
+# THAT week's receipts?
+# Options:
+#   week_end   — whoever holds the rider on Sunday (DEFAULT)
+#   week_start — whoever held the rider on Monday
+#   prorated   — split proportionally by days held
+# ---------------------------------------------------------------------------
+# commission:
+#   midweek_switch_attribution: week_end
+
+# ---------------------------------------------------------------------------
+# Q2 — Agency commission basis.
+# What counts toward an agency's commission?
+# Options:
+#   momo_bank_only           — only direct MoMo / bank receipts
+#   total_applied            — every applied receipt including Bolt deductions (DEFAULT)
+#   momo_bank_plus_promises  — direct receipts + honoured promises_to_pay
+# `compute_in_pipeline`: when true, commission amounts get computed and
+# surfaced in run artifacts. When false (DEFAULT), commission stays a
+# downstream concern — the pipeline only reports collected amounts.
+# ---------------------------------------------------------------------------
+# commission:
+#   basis: total_applied
+#   compute_in_pipeline: false
+
+# ---------------------------------------------------------------------------
+# Q3 — Bolt deductions count toward agency scoring?
+# When computing an agency's Collection Rate % (Step 6 / agency_performance),
+# include the Bolt weekly deductions in the numerator?
+# Options:
+#   true   — include Bolt deductions (DEFAULT)
+#   false  — only MoMo / bank receipts count toward the agency's score
+# ---------------------------------------------------------------------------
+# agency_scoring:
+#   include_bolt_weekly: true

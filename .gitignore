@@ -56,6 +56,7 @@ htmlcov/
 /secrets/
 /sample_inputs/
 /data/*.json
+/artifacts/
 
 # Source documents with customer data — keep out of source control
 *.xlsx

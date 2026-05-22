@@ -31,6 +31,23 @@ class Settings(BaseSettings):
     ZOHO_SUBSCRIPTIONS_DRIVE_FOLDER_ID: str = "1yjyx07gKnaZteTrYd9elAt26gIvqb3tK"
     # Drive folder holding rider payment files (MoMo / bank / cash statements)
     PAYMENTS_DRIVE_FOLDER_ID: str = "1CJ3gMVNNpr50P5aKy8Y-sA00OC9xFdpD"
+    # Zoho payments exports (CSVs of payments received).
+    ZOHO_PAYMENTS_DRIVE_FOLDER_ID: str = "1eveM0LJ6aYZtC1uKM3ItcmF1qCx-mv_g"
+    # Bolt weekly payout workings root. Contains per-month subfolders, each
+    # holding one Google Sheet per ISO-week titled "Bolt Food Payout
+    # Workings - [DD/MM/YYYY]" where the date is the Monday AFTER the
+    # Mon-Sun work week (i.e. the payout Monday).
+    BOLT_DRIVE_FOLDER_ID: str = "1FEjOVkQKJpqp59xsIObnsyifUYHuuyhM"
+    # collections_v3 root — pipeline output XLSX files land here.
+    COLLECTIONS_DRIVE_FOLDER_ID: str = "0AOTO8CKQDQcBUk9PVA"
+    # Bike fleet roster (multi-tab Google Sheet). The TSA tab's Assigned Rider
+    # column lists every rider currently on a TSA bike; any billed Zoho
+    # customer not in that list is Wahu fleet.
+    BIKE_FLEET_SHEET_ID: str = "1f1x38Sfj2QOe07daZ7xSi9cjp-JyUPg6"
+    # Collection Assignment Zones. Has the customer-address roster plus two
+    # zone tables: West Zone -> Hortta, East Zone -> TSAC. All TSA fleet
+    # riders go to TSAC regardless of zone.
+    ASSIGNMENT_ZONES_SHEET_ID: str = "1vyhQBVwGgQDCM7A-A_46zMil9cNDUCKK-lFkojSA3Nc"
     # Only reconcile payments dated on or after this — Zoho already has earlier ones.
     PAYMENTS_CUTOFF_DATE: str = "2026-05-14"
     # Either a path to a JSON file (local dev) OR raw JSON content (Railway/prod).
