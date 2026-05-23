@@ -192,8 +192,10 @@ def _passes_status(rider_status: str, has_outstanding: bool, want: StatusFilter)
     if want == "completed":
         return rider_status == "completed"
     if want == "recovery":
-        # Recovery = churned AND still owing money
-        return rider_status == "recovery" and has_outstanding
+        # Recovery = every churned rider. Outstanding column on the row tells
+        # the user whether there's still money to chase; we no longer hide
+        # zero-balance churners (they were dropping out of A/R/C totals).
+        return rider_status == "recovery"
     return True
 
 
