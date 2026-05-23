@@ -58,9 +58,8 @@ def _load_subs():
 
 
 def _load_os_fleet():
-    if not OS_FLEET_CSV.exists():
-        return {}
-    return _load_os_fleet_cached(OS_FLEET_CSV.stat().st_mtime)
+    from api.agents.collections_report.sheet_loaders import resolve_fleet_map
+    return resolve_fleet_map()
 
 
 def _build(

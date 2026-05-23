@@ -81,9 +81,8 @@ def _load_subscription_map():
 
 
 def _load_os_fleet():
-    if not OS_FLEET_CSV.exists():
-        return {}
-    return _load_os_fleet_cached(OS_FLEET_CSV.stat().st_mtime)
+    from api.agents.collections_report.sheet_loaders import resolve_fleet_map
+    return resolve_fleet_map()
 
 
 def _build(
@@ -108,9 +107,17 @@ def _build(
         window_end=window_end,
         subscription_status_map=_load_subscription_map(),
         name_fleet_map=_load_os_fleet(),
-        agency_map=agency_store.agency_map(),
+        agency_map=_resolve_agencies(invoices),
         agency_filter=agency if agency and agency != "All" else None,
     )
+
+
+def _resolve_agencies(invoices) -> dict[str, str]:
+    """Sheet-derived agencies overlaid with manual agency_store assignments."""
+    from api.agents.collections_report.sheet_loaders import resolve_agency_map
+    derived = resolve_agency_map(invoices)
+    manual = agency_store.agency_map()
+    return {**derived, **manual}  # manual wins on conflict
 
 
 @router.get("/collections")
