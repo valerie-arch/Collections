@@ -41,6 +41,25 @@ def _invoices_by_rider() -> dict[str, list]:
     return out
 
 
+def _full_agency_map(by_rider: dict[str, list]) -> dict[str, dict]:
+    """Merge sheet-derived agencies with manual JSON assignments.
+
+    Sheet-derived rows (from the Assignment Zones Google Sheet + TSA roster)
+    fill the bulk. Manual assignments in data/agency_assignments.json override
+    on conflict and carry their original metadata. Recommender expects the
+    rich {customer_id: {agency, assigned_at, note}} shape.
+    """
+    from api.agents.collections_report.sheet_loaders import resolve_agency_map
+    invoices = [inv for invs in by_rider.values() for inv in invs]
+    derived = resolve_agency_map(invoices)
+    out: dict[str, dict] = {
+        cid: {"agency": agency, "assigned_at": None, "note": None}
+        for cid, agency in derived.items()
+    }
+    out.update(agency_store.list_assignments())
+    return out
+
+
 @router.get("/")
 def list_activities(
     customer_id: Optional[str] = None,
@@ -91,7 +110,7 @@ def recommendations(
     if not by_rider:
         return {"items": [], "_note": "No invoice data — sync from Drive first."}
     activity_log = store.list_all()
-    agency_map = agency_store.list_assignments()
+    agency_map = _full_agency_map(by_rider)
     recs = recommend_for_all(
         by_rider, activity_log=activity_log, agency_map=agency_map
     )
@@ -112,7 +131,7 @@ def recommendation_for(customer_id: str):
     if not invs:
         raise HTTPException(status_code=404, detail="rider has no invoices")
     activity_log = store.list_all()
-    agency_rec = agency_store.list_assignments().get(customer_id) or {}
+    agency_rec = _full_agency_map(by_rider).get(customer_id) or {}
     rec = recommend_for_rider(
         invs,
         activity_log=activity_log,
