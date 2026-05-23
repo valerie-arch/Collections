@@ -106,10 +106,19 @@ def _build(
         window_start=window_start,
         window_end=window_end,
         subscription_status_map=_load_subscription_map(),
+        status_dates=_load_status_dates(),
         name_fleet_map=_load_os_fleet(),
         agency_map=_resolve_agencies(invoices),
         agency_filter=agency if agency and agency != "All" else None,
     )
+
+
+def _load_status_dates() -> dict:
+    from api.agents.collections_report import load_subscription_status_dates
+    files = sorted(SUBSCRIPTIONS_DIR.glob("zoho_subscriptions*.csv"))
+    if not files:
+        return {}
+    return load_subscription_status_dates(files[-1])
 
 
 def _resolve_agencies(invoices) -> dict[str, str]:
@@ -204,6 +213,7 @@ def collections_report(
                 "customer_name": s.customer_name,
                 "first_invoice": s.first_invoice.isoformat(),
                 "last_invoice": s.last_invoice.isoformat(),
+                "last_payment_date": s.last_payment_date.isoformat() if s.last_payment_date else None,
                 "months_since_last_invoice": s.months_since_last_invoice,
                 "lifetime_invoices": s.lifetime_invoices,
                 "open_invoices": s.open_invoices,

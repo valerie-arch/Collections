@@ -100,6 +100,7 @@ export function RidersTable({
             <tr>
               <th>Customer</th>
               <th>Last invoice</th>
+              <th>Last payment</th>
               <th>Inv.</th>
               <th>Open</th>
               <th>Invoiced</th>
@@ -114,7 +115,7 @@ export function RidersTable({
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="text-center text-ink-fade py-8">
+                <td colSpan={12} className="text-center text-ink-fade py-8">
                   No riders match.
                 </td>
               </tr>
@@ -130,6 +131,9 @@ export function RidersTable({
                   <div className="text-xs text-ink-fade">
                     {r.months_since_last_invoice}mo ago
                   </div>
+                </td>
+                <td className="text-ink-muted text-sm">
+                  {r.last_payment_date || <span className="text-ink-fade">—</span>}
                 </td>
                 <td className="font-mono text-sm">{r.lifetime_invoices}</td>
                 <td className="font-mono text-sm">{r.open_invoices}</td>

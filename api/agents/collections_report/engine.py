@@ -65,6 +65,7 @@ class RiderScorecard:
     customer_name: str
     first_invoice: date
     last_invoice: date
+    last_payment_date: date | None
     months_since_last_invoice: int
     lifetime_invoices: int
     open_invoices: int
@@ -215,6 +216,7 @@ def build_report(
     window_start: date | None = None,
     window_end: date | None = None,
     subscription_status_map: dict[str, tuple[str, bool]] | None = None,
+    status_dates: dict[str, date] | None = None,
     name_fleet_map: dict[str, str] | None = None,
     agency_map: dict[str, str] | None = None,
     agency_filter: str | None = None,
@@ -224,6 +226,10 @@ def build_report(
     subscription_status_map: {customer_id: (status, is_tsa)} from the Zoho
     subscriptions export. Overrides per-invoice Completed/Churned/TSA flags
     (which are typically empty in invoice exports).
+
+    status_dates: {customer_id: date} — when the rider entered their current
+    status (Cancelled Date for recovery, Expiry Date for completed). Used to
+    window-scope Recovery/Completed views (e.g. "riders who churned in May").
 
     name_fleet_map: {normalized_customer_name: 'Wahu'|'TSA'} from the Wahu OS
     Bikes_and_Riders sheet. Authoritative for fleet — overrides the
@@ -236,24 +242,32 @@ def build_report(
     invoices = list(invoices)
     as_of = as_of or date.today()
     win_start, win_end, win_label = _window_for(view, as_of, window_start, window_end)
+    status_dates = status_dates or {}
 
-    # Recovery/Completed/All are NOT window-scoped — surface every historical
-    # rider in that status. Override the label so it doesn't lie about scope.
-    if status != "active":
-        win_label = f"All-time {status} (window selector applies to Active only)"
+    # Status filter window semantics:
+    #   - Active + MTD/custom: invoices in window (currently engaged)
+    #   - Active + Lifetime: any historical activity
+    #   - Recovery/Completed + MTD/custom: status_date in window (churned/expired
+    #     within that window)
+    #   - Recovery/Completed + Lifetime: all historical churned/completed
+    #   - All: no window
+    if status == "all" or (status != "active" and view == "lifetime"):
+        win_label = f"All-time {status}"
+    elif status in ("recovery", "completed") and view in ("mtd", "custom"):
+        win_label = f"{win_label} — by {'churn' if status == 'recovery' else 'expiry'} date"
 
     all_rider_ids = {i.customer_id for i in invoices if i.customer_id}
     total_rider_population = len(all_rider_ids)
 
-    # Cohort gating depends on the status filter:
-    #   - Active: must have an invoice in the window (currently engaged)
-    #   - Recovery / Completed / All: NOT window-gated — surface every
-    #     historical churned or completed rider so they can be worked,
-    #     even if their last invoice was years ago.
     if status == "active":
         cohort_ids = {
             i.customer_id for i in invoices
             if win_start <= i.invoice_date <= win_end and i.customer_id
+        }
+    elif status in ("recovery", "completed") and view in ("mtd", "custom"):
+        cohort_ids = {
+            cid for cid, sd in status_dates.items()
+            if cid in all_rider_ids and win_start <= sd <= win_end
         }
     else:
         cohort_ids = all_rider_ids
@@ -312,6 +326,10 @@ def build_report(
         band, _ = _risk_band(ratio)
         first_i = min(i.invoice_date for i in scope)
         last_i = max(i.invoice_date for i in scope)
+        last_pay = max(
+            (i.last_payment_date for i in rider_invoices if i.last_payment_date),
+            default=None,
+        )
 
         if not _passes_status(rider_status, outstanding > 0, status):
             continue
@@ -321,6 +339,7 @@ def build_report(
             customer_name=scope[0].customer_name,
             first_invoice=first_i,
             last_invoice=last_i,
+            last_payment_date=last_pay,
             months_since_last_invoice=_months_between(as_of, last_i),
             lifetime_invoices=len(scope),
             open_invoices=sum(1 for i in scope if i.is_open),

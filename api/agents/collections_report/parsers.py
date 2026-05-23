@@ -176,9 +176,20 @@ def load_subscription_status_map(
                 continue
             status = (row.get("Subscription Status") or "").strip().lower()
             tsa = _to_bool(row.get("TSA"))
-            r = rollup.setdefault(cid, {"statuses": set(), "tsa": False})
+            r = rollup.setdefault(cid, {
+                "statuses": set(),
+                "tsa": False,
+                "cancelled_dates": [],
+                "expiry_dates": [],
+            })
             r["statuses"].add(status)
             r["tsa"] = r["tsa"] or tsa
+            cd = _to_date(row.get("Cancelled Date"))
+            if cd:
+                r["cancelled_dates"].append(cd)
+            ed = _to_date(row.get("Expiry Date"))
+            if ed:
+                r["expiry_dates"].append(ed)
 
     result: dict[str, tuple[str, bool]] = {}
     for cid, info in rollup.items():
@@ -193,6 +204,52 @@ def load_subscription_status_map(
             kind = "active"
         result[cid] = (kind, info["tsa"])
     return result
+
+
+def load_subscription_status_dates(
+    subscriptions_csv: str | Path,
+) -> dict[str, date]:
+    """{customer_id: status_change_date} — when the rider entered their current status.
+
+    For 'recovery' riders → latest Cancelled Date across their subscriptions.
+    For 'completed' riders → latest Expiry Date.
+    Active riders are not included (their "status date" is meaningless for windowed
+    Recovery/Completed filters).
+    """
+    path = Path(subscriptions_csv)
+    if not path.exists():
+        return {}
+
+    rollup: dict[str, dict] = {}
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            cid = (row.get("Customer ID") or "").strip()
+            if not cid:
+                continue
+            status = (row.get("Subscription Status") or "").strip().lower()
+            r = rollup.setdefault(cid, {
+                "statuses": set(),
+                "cancelled_dates": [],
+                "expiry_dates": [],
+            })
+            r["statuses"].add(status)
+            cd = _to_date(row.get("Cancelled Date"))
+            if cd:
+                r["cancelled_dates"].append(cd)
+            ed = _to_date(row.get("Expiry Date"))
+            if ed:
+                r["expiry_dates"].append(ed)
+
+    out: dict[str, date] = {}
+    for cid, info in rollup.items():
+        statuses = info["statuses"]
+        if statuses & {"live", "paused"}:
+            continue  # active — no status_date
+        if "cancelled" in statuses and info["cancelled_dates"]:
+            out[cid] = max(info["cancelled_dates"])
+        elif "expired" in statuses and info["expiry_dates"]:
+            out[cid] = max(info["expiry_dates"])
+    return out
 
 
 def parse_invoice_folder(folder: str | Path) -> list[InvoiceRow]:

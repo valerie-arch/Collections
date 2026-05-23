@@ -11,6 +11,7 @@ from api.agents.collections_report.engine import (
 )
 from api.agents.collections_report.parsers import (
     load_os_fleet_map,
+    load_subscription_status_dates,
     load_subscription_status_map,
     parse_zoho_invoice_csv,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "ReportData",
     "build_report",
     "load_os_fleet_map",
+    "load_subscription_status_dates",
     "load_subscription_status_map",
     "parse_zoho_invoice_csv",
     "write_report_xlsx",

@@ -408,6 +408,7 @@ export type CollectionsReport = {
     customer_name: string;
     first_invoice: string;
     last_invoice: string;
+    last_payment_date: string | null;
     months_since_last_invoice: number;
     lifetime_invoices: number;
     open_invoices: number;
