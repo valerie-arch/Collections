@@ -23,6 +23,18 @@ def _safe_filename(name: str) -> str:
     return name.replace("/", "_").replace(" ", "_")
 
 
+def _subs_canonical_name(drive_file: DriveFile) -> str:
+    """Canonical filename for a synced subscriptions CSV.
+
+    The report loader globs `zoho_subscriptions*.csv` and takes the last
+    one alphabetically. Drive files are typically named "Subscriptions (3).csv"
+    or similar, which don't match. We rewrite to a sortable, glob-matching
+    name keyed by Drive modifiedTime so the freshest export wins on sort.
+    """
+    stamp = (drive_file.modified_time or "").replace(":", "").replace(".", "_")
+    return f"zoho_subscriptions_{stamp or drive_file.id}.csv"
+
+
 def _load_state() -> dict[str, str]:
     if not STATE_FILE.exists():
         return {}
@@ -110,21 +122,20 @@ def sync_invoices(
                     "Check the folder ID and that the file is a CSV or Google Sheet."
                 )
             for f in subs_files:
-                if state.get(f.id) == f.modified_time:
-                    existing = SUBS_LOCAL_DIR / _safe_filename(f.name if not f.mime_type == GOOGLE_SHEET_MIME or f.name.lower().endswith(".csv") else f.name + ".csv")
-                    if existing.exists():
-                        skipped.append(f.name)
-                        continue
+                target = SUBS_LOCAL_DIR / _subs_canonical_name(f)
+                if state.get(f.id) == f.modified_time and target.exists():
+                    skipped.append(f.name)
+                    continue
                 logger.info("downloading subscription %s (%s)", f.name, f.mime_type)
                 try:
-                    data, name = _fetch(f)
+                    data, _ = _fetch(f)
                 except Exception as e:
                     logger.exception("failed to download subscription %s: %s", f.name, e)
                     subs_error = f"download failed for {f.name}: {e}"
                     continue
-                (SUBS_LOCAL_DIR / _safe_filename(name)).write_bytes(data)
+                target.write_bytes(data)
                 state[f.id] = f.modified_time
-                downloaded.append(name)
+                downloaded.append(target.name)
             subs_count = len(subs_files)
         except Exception as e:
             # Most common cause: folder not shared with the service account.
