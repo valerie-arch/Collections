@@ -698,8 +698,14 @@ export type InvoicesListResponse = {
 export type PaymentChannel =
   | "all" | "mtn" | "telecel" | "hero" | "bank" | "cash" | "bolt_deduction" | "unknown";
 
+export type PaymentMatchStatus = "all" | "matched" | "unmatched";
+
+export type PaymentView = "mtd" | "lifetime" | "custom";
+
 export type PaymentsListQuery = {
+  view?: PaymentView;
   channel?: PaymentChannel;
+  match_status?: PaymentMatchStatus;
   start?: string;
   end?: string;
   q?: string;
@@ -710,6 +716,7 @@ export type PaymentsListQuery = {
 export type PaymentListRow = {
   source: "receipt" | "bolt";
   channel: string;
+  method: string;
   date: string | null;
   amount_ghs: number;
   sender_name: string;
@@ -718,12 +725,45 @@ export type PaymentListRow = {
   narration: string;
   source_file: string;
   txn_id: string;
+  matched: boolean;
+  rider_id: string;
+  rider_name: string;
+  applied_to_invoice: string;
+  days_late: number | null;
+  timeliness: string;
+  stream: string;
+};
+
+export type PaymentMethodSummary = {
+  method: string;
+  count: number;
+  value_ghs: number;
+};
+
+export type PaymentTimelinessBucket = {
+  bucket: string;
+  count: number;
+  pct_count: number;
+  value_ghs: number;
+  pct_value: number;
 };
 
 export type PaymentsListResponse = {
-  total: number;
-  total_amount_ghs: number;
-  by_channel: Record<string, { count: number; amount_ghs: number }>;
+  as_of: string;
+  window: { period: string; start: string; end: string; label: string };
+  filters: { view: string; channel: string; match_status: string };
+  summary: {
+    total_payments: number;
+    total_value_ghs: number;
+    unique_paying_riders: number;
+    matched_count: number;
+    matched_value_ghs: number;
+    unmatched_count: number;
+    unmatched_value_ghs: number;
+    by_method: PaymentMethodSummary[];
+    timeliness: PaymentTimelinessBucket[];
+  };
+  row_total: number;
   limit: number;
   offset: number;
   rows: PaymentListRow[];
