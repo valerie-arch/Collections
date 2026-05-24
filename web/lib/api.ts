@@ -803,6 +803,7 @@ export type PaymentListRow = {
   reference: string;
   narration: string;
   source_file: string;
+  line_no?: number;
   txn_id: string;
   matched: boolean;
   rider_id: string;

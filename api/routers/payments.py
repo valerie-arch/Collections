@@ -54,6 +54,29 @@ def _channel_to_method(ch: str) -> str:
     return "Other"
 
 
+def _infer_channel_from_filename(filename: str) -> str:
+    """Fallback channel detection from the source filename. After the
+    drive_sync recursion fix, files arrive prefixed with their parent
+    subfolder name (e.g. "MTN_<orig>.csv", "Telecel_...", "Bank_...").
+    This catches rows whose in-file channel column was empty and whose
+    sender name didn't hit the parser's keyword detector."""
+    n = (filename or "").lower()
+    if "mtn" in n or "momo" in n:
+        return "mtn"
+    if "telecel" in n or "vodafone" in n:
+        return "telecel"
+    if "airteltigo" in n or "hero" in n or "airtel" in n:
+        return "hero"
+    if any(t in n for t in ("bank", "absa", "stanbic", "fidelity",
+                            "gcb", "ecobank", "cal_bank", "uba")):
+        return "bank"
+    if "cash" in n:
+        return "cash"
+    if "bolt" in n:
+        return "bolt_deduction"
+    return "unknown"
+
+
 def _classify_stream(amount_ghs: float, rider_id: str, sub_map: dict) -> str:
     """Mirror /api/invoices/list stream heuristic so the two pages agree."""
     if rider_id and rider_id not in sub_map:
@@ -165,10 +188,14 @@ def _list_payments_impl(
     if PAYMENTS_LOCAL.exists():
         for r in parse_folder(PAYMENTS_LOCAL):
             d = r.date
+            # When the in-file channel detector returns "unknown", fall back
+            # to the filename (which now carries the subfolder prefix from
+            # the recursive sync).
+            ch = r.channel if r.channel != "unknown" else _infer_channel_from_filename(r.source_file)
             rows.append({
                 "source": "receipt",
-                "channel": r.channel,
-                "method": _channel_to_method(r.channel),
+                "channel": ch,
+                "method": _channel_to_method(ch),
                 "date": d.isoformat() if d else None,
                 "amount_ghs": float(r.amount_ghs) if r.amount_ghs is not None else 0.0,
                 "sender_name": (r.raw_name or "").strip(),
@@ -176,6 +203,7 @@ def _list_payments_impl(
                 "reference": r.reference or "",
                 "narration": r.raw_name or "",
                 "source_file": r.source_file,
+                "line_no": r.line_no,
                 "txn_id": r.reference or "",
                 # Filled in after matching:
                 "matched": False,
@@ -209,6 +237,7 @@ def _list_payments_impl(
                     "reference": getattr(r, "reference", ""),
                     "narration": getattr(r, "narration", ""),
                     "source_file": getattr(r, "source_file", ""),
+                    "line_no": 0,
                     "txn_id": getattr(r, "txn_id", ""),
                     # Bolt deductions ARE pre-matched (rider_id known on sheet).
                     "matched": True,
@@ -240,50 +269,20 @@ def _list_payments_impl(
         for inv in parse_invoice_folder(INVOICES_DIR):
             inv_due_by_id[inv.invoice_id] = inv.due_date
 
-        # Index reconciler output by (source_file, line_no) so we can
-        # attach rider info back onto our raw rows. PaymentRow.line_no
-        # is stable per source file.
+        # Index reconciler output by (source_file, line_no) — unique per
+        # parsed row. Earlier this used a (date, amount, reference) proxy
+        # which collided whenever multiple rows had blank references,
+        # producing incorrect matched/unmatched attribution.
         match_idx: dict[tuple, dict] = {}
         for m in rc.matched:
-            key = (m.payment.source_file, m.payment.line_no)
-            inv_id = m.allocations[0].invoice_id if m.allocations else ""
-            due = inv_due_by_id.get(inv_id)
-            pay_date = m.payment.date
-            days_diff: Optional[int] = None
-            if due and pay_date:
-                days_diff = (pay_date - due).days
-            match_idx[key] = {
-                "rider_id": m.rider_id,
-                "rider_name": m.rider_name,
-                "applied_to_invoice": inv_id,
-                "days_late": days_diff,
-                "timeliness": _timeliness_bucket(days_diff),
-                "stream": _classify_stream(
-                    float(m.payment.amount_ghs or 0.0), m.rider_id, sub_map,
-                ),
-            }
-        for r in rows:
-            if r["source"] == "receipt":
-                # parse_folder produces source_file with the full local path; the
-                # reconciler also uses the local path, so the keys align.
-                # line_no isn't carried on our row dicts — re-key by (channel,
-                # date, amount, reference) which is stable enough.
-                pass
-        # Instead of trying to align line_no, re-key by (date, amount, txn_id).
-        match_by_proxy: dict[tuple, dict] = {}
-        for m in rc.matched:
             p = m.payment
-            key = (
-                p.date.isoformat() if p.date else "",
-                round(float(p.amount_ghs or 0.0), 2),
-                (p.reference or "").strip(),
-            )
+            key = (p.source_file, p.line_no)
             inv_id = m.allocations[0].invoice_id if m.allocations else ""
             due = inv_due_by_id.get(inv_id)
-            days_diff = (
-                (p.date - due).days if (p.date and due) else None
-            )
-            match_by_proxy[key] = {
+            days_diff: Optional[int] = None
+            if due and p.date:
+                days_diff = (p.date - due).days
+            match_idx[key] = {
                 "rider_id": m.rider_id,
                 "rider_name": m.rider_name,
                 "applied_to_invoice": inv_id,
@@ -296,8 +295,7 @@ def _list_payments_impl(
         for r in rows:
             if r["source"] != "receipt":
                 continue
-            key = (r["date"] or "", round(r["amount_ghs"], 2), r["reference"])
-            hit = match_by_proxy.get(key)
+            hit = match_idx.get((r["source_file"], r["line_no"]))
             if hit:
                 r["matched"] = True
                 r.update(hit)
