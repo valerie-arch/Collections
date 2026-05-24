@@ -110,6 +110,19 @@ def list_payments(
     window = resolve_window(view, today, start, end)
 
     # ------------------------------------------------------------------
+    # 0) Ensure the local payments cache is populated. On Railway the
+    # filesystem is ephemeral, so after a fresh deploy `sample_inputs/
+    # payments/` is empty until someone hits the Reconcile page. Auto-sync
+    # here makes MTN/Telecel/Bank/Cash data visible on first page load.
+    # sync_payments is idempotent (skips unchanged files via state file),
+    # so warm-path requests stay fast.
+    # ------------------------------------------------------------------
+    try:
+        sync_payments()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("auto-sync of payments folder failed: %s", e)
+
+    # ------------------------------------------------------------------
     # 1) Load raw payments (MoMo / bank / cash receipts) + Bolt synthetic
     # ------------------------------------------------------------------
     rows: list[dict] = []
