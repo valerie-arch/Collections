@@ -5,7 +5,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const PERIODS: DashboardPeriod[] = ["daily", "weekly", "monthly", "lifetime", "custom"];
+const PERIODS: DashboardPeriod[] = ["mtd", "lifetime", "custom"];
+const PERIOD_LABEL: Record<DashboardPeriod, string> = {
+  mtd: "MTD",
+  lifetime: "Lifetime",
+  custom: "Custom",
+};
 const FLEETS: ReportFleet[] = ["All", "Wahu", "TSA"];
 
 function fmtGhs0(n: number) {
@@ -32,7 +37,7 @@ export default async function PortfolioDashboardPage({
     searchParams?.period ?? "",
   )
     ? (searchParams!.period as DashboardPeriod)
-    : "monthly";
+    : "mtd";
   const fleet: ReportFleet = (FLEETS as readonly string[]).includes(
     searchParams?.fleet ?? "",
   )
@@ -138,7 +143,7 @@ function PeriodFleetSelector({
   }>) => {
     const next = { period, fleet, start, end, ...overrides };
     const params = new URLSearchParams();
-    if (next.period !== "monthly") params.set("period", next.period);
+    if (next.period !== "mtd") params.set("period", next.period);
     if (next.fleet !== "All") params.set("fleet", next.fleet);
     if (next.period === "custom" && next.start) params.set("start", next.start);
     if (next.period === "custom" && next.end) params.set("end", next.end);
@@ -156,13 +161,13 @@ function PeriodFleetSelector({
             <a
               key={p}
               href={hrefFor({ period: p })}
-              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors capitalize ${
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                 period === p
                   ? "bg-canvas-raised text-ink shadow-card"
                   : "text-ink-muted hover:text-ink"
               }`}
             >
-              {p}
+              {PERIOD_LABEL[p]}
             </a>
           ))}
         </div>

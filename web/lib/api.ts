@@ -67,6 +67,14 @@ export const api = {
       `/api/dashboard-v2/snapshot?${qs(params as any)}`,
     ),
 
+  // Invoices listing (filterable)
+  invoicesList: (params: InvoicesListQuery = {}) =>
+    request<InvoicesListResponse>(`/api/invoices/list?${qs(params as any)}`),
+
+  // Payments listing (filterable, MTN/Telecel/Bank/Bolt)
+  paymentsList: (params: PaymentsListQuery = {}) =>
+    request<PaymentsListResponse>(`/api/payments/list?${qs(params as any)}`),
+
   // Drive
   driveSync: () =>
     request<{
@@ -485,8 +493,7 @@ export type QbPreviewResponse = {
 // Dashboard v2 — 10 KPIs
 // ---------------------------------------------------------------------------
 
-export type DashboardPeriod =
-  | "daily" | "weekly" | "monthly" | "lifetime" | "custom";
+export type DashboardPeriod = "mtd" | "lifetime" | "custom";
 
 export type DashboardSnapshotQuery = {
   period?: DashboardPeriod;
@@ -620,6 +627,76 @@ export type DashboardSnapshot = {
     net_charge_off: NetChargeOff;
     recovery_on_churned: RecoveryOnChurned;
   };
+};
+
+// ---------------------------------------------------------------------------
+// Invoices + Payments listings
+// ---------------------------------------------------------------------------
+
+export type InvoicesListQuery = {
+  fleet?: ReportFleet;
+  status?: "all" | "open" | "paid" | "overdue" | "partial" | "void" | "draft";
+  start?: string;
+  end?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type InvoiceListRow = {
+  invoice_id: string;
+  customer_id: string;
+  customer_name: string;
+  invoice_date: string | null;
+  due_date: string | null;
+  status: string;
+  total_ghs: number;
+  balance_ghs: number;
+  last_payment_date: string | null;
+};
+
+export type InvoicesListResponse = {
+  total: number;
+  open_count: number;
+  total_invoiced_ghs: number;
+  total_outstanding_ghs: number;
+  limit: number;
+  offset: number;
+  rows: InvoiceListRow[];
+};
+
+export type PaymentChannel =
+  | "all" | "mtn" | "telecel" | "hero" | "bank" | "cash" | "bolt_deduction" | "unknown";
+
+export type PaymentsListQuery = {
+  channel?: PaymentChannel;
+  start?: string;
+  end?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type PaymentListRow = {
+  source: "receipt" | "bolt";
+  channel: string;
+  date: string | null;
+  amount_ghs: number;
+  sender_name: string;
+  sender_phone: string;
+  reference: string;
+  narration: string;
+  source_file: string;
+  txn_id: string;
+};
+
+export type PaymentsListResponse = {
+  total: number;
+  total_amount_ghs: number;
+  by_channel: Record<string, { count: number; amount_ghs: number }>;
+  limit: number;
+  offset: number;
+  rows: PaymentListRow[];
 };
 
 export type OutliersResponse = {

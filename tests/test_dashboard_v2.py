@@ -46,18 +46,12 @@ def _inv(
 # resolve_window
 # ---------------------------------------------------------------------------
 
-def test_resolve_window_monthly_returns_calendar_month():
-    w = resolve_window("monthly", date(2026, 5, 23))
+def test_resolve_window_mtd_runs_from_first_to_as_of():
+    w = resolve_window("mtd", date(2026, 5, 23))
     assert w.start == date(2026, 5, 1)
-    assert w.end == date(2026, 5, 31)
-    assert w.label == "May 2026"
-
-
-def test_resolve_window_weekly_returns_iso_week():
-    # Sunday May 24 2026 → ISO week is Mon May 18 – Sun May 24.
-    w = resolve_window("weekly", date(2026, 5, 24))
-    assert w.start == date(2026, 5, 18)
-    assert w.end == date(2026, 5, 24)
+    assert w.end == date(2026, 5, 23)
+    assert "May 2026" in w.label
+    assert "MTD" in w.label
 
 
 def test_resolve_window_lifetime_spans_history():
@@ -79,38 +73,50 @@ def test_resolve_window_custom_uses_given_dates():
 # KPI 1 — Active Payer Rate
 # ---------------------------------------------------------------------------
 
-def test_active_payer_rate_segments_by_tenure_and_counts_recent_payers():
-    """Active = open balance OR an invoice in the last 30 days. Tenure =
-    MIN(invoice_date) per rider. To keep each rider 'active' while varying
-    tenure, we attach both an old (tenure-defining) and a recent (activity-
-    defining) invoice per rider."""
+def test_active_payer_rate_uses_subscription_status_for_active_set():
+    """Active set is subscription_status_map[cid] == 'active'. R3 has an
+    open balance but a 'recovery' status — must NOT count as active."""
     as_of = date(2026, 5, 24)
     invs = [
-        # R1: tenure 10 months, paid recently, no balance — 6-12m, paying.
+        # Tenure ~10 months, paid recently → 6-12m bucket, paying.
         _inv("R1", "Alpha", date(2025, 7, 24), 100, 0,
-             last_payment_date=date(2025, 8, 1), invoice_id="R1-old"),
-        _inv("R1", "Alpha", date(2026, 5, 1), 100, 0,
-             last_payment_date=date(2026, 5, 10), invoice_id="R1-new"),
-        # R2: brand-new rider with a recent invoice — 0-3m, paying.
+             last_payment_date=date(2026, 5, 10)),
+        # Tenure ~50 days, paid recently → 0-3m, paying.
         _inv("R2", "Beta", date(2026, 4, 5), 100, 0,
              last_payment_date=date(2026, 5, 23)),
-        # R3: brand-new rider with an open balance, no recent payment — 0-3m, NOT paying.
+        # In recovery — open balance but EXCLUDED from active set.
         _inv("R3", "Gamma", date(2026, 5, 1), 100, 100),
-        # R4: tenure 18 months, recent invoice + payment — 12m+, paying.
+        # Tenure ~18 months, paid recently → 12m+, paying.
         _inv("R4", "Delta", date(2024, 11, 1), 100, 0,
-             last_payment_date=date(2024, 11, 15), invoice_id="R4-old"),
-        _inv("R4", "Delta", date(2026, 5, 1), 100, 0,
-             last_payment_date=date(2026, 5, 1), invoice_id="R4-new"),
+             last_payment_date=date(2026, 5, 1)),
     ]
-    out = compute_active_payer_rate(invs, as_of=as_of)
-    assert out.overall_active == 4
+    sub_map = {
+        "R1": ("active", False),
+        "R2": ("active", False),
+        "R3": ("recovery", False),    # excluded
+        "R4": ("active", False),
+    }
+    out = compute_active_payer_rate(invs, as_of=as_of, subscription_status_map=sub_map)
+    assert out.overall_active == 3       # R3 excluded
     assert out.overall_paying == 3
-    assert out.overall_rate_pct == 75.0
+    assert out.overall_rate_pct == 100.0
     bucket = {s.tenure: s for s in out.by_tenure}
-    assert bucket["0-3m"].active_riders == 2
-    assert bucket["0-3m"].paying_riders == 1
+    assert bucket["0-3m"].active_riders == 1
+    assert bucket["6-12m"].active_riders == 1
     assert bucket["12m+"].active_riders == 1
-    assert bucket["12m+"].paying_riders == 1
+
+
+def test_active_payer_rate_falls_back_to_invoice_set_when_no_sub_map():
+    """If we get an empty subscription map (dev environment with no subs
+    data), every rider with any invoice on record counts as active."""
+    invs = [
+        _inv("R1", "A", date(2026, 5, 1), 100, 0,
+             last_payment_date=date(2026, 5, 5)),
+        _inv("R2", "B", date(2026, 5, 1), 100, 100),
+    ]
+    out = compute_active_payer_rate(invs, as_of=date(2026, 5, 24))
+    assert out.overall_active == 2
+    assert out.overall_paying == 1
 
 
 def test_active_payer_rate_empty_returns_zeros():
@@ -124,7 +130,7 @@ def test_active_payer_rate_empty_returns_zeros():
 # ---------------------------------------------------------------------------
 
 def test_on_time_rate_counts_payments_inside_window_only():
-    window = resolve_window("monthly", date(2026, 5, 23))
+    window = resolve_window("mtd", date(2026, 5, 23))
     invs = [
         # On-time, in window.
         _inv("R1", "A", date(2026, 5, 1), 100, 0,
@@ -147,7 +153,7 @@ def test_on_time_rate_counts_payments_inside_window_only():
 # ---------------------------------------------------------------------------
 
 def test_monthly_collections_gross_rate_and_rider_splits():
-    window = resolve_window("monthly", date(2026, 5, 23))
+    window = resolve_window("mtd", date(2026, 5, 23))
     invs = [
         # R1: fully paid in window (invoiced 100, paid 100).
         _inv("R1", "A", date(2026, 5, 5), 100, 0, last_payment_date=date(2026, 5, 10)),
@@ -175,7 +181,7 @@ def test_monthly_collections_gross_rate_and_rider_splits():
 # ---------------------------------------------------------------------------
 
 def test_mrr_computes_current_new_and_churned():
-    window = resolve_window("monthly", date(2026, 5, 23))
+    window = resolve_window("mtd", date(2026, 5, 23))
     invs = [
         # Returning rider invoiced 500 this month.
         _inv("R1", "Old", date(2025, 1, 5), 500, 0),  # first-ever invoice in Jan 2025
@@ -242,7 +248,7 @@ def test_lifetime_efficiency_total_minus_balance():
 # ---------------------------------------------------------------------------
 
 def test_net_charge_off_unavailable_when_ledger_empty():
-    window = resolve_window("monthly", date(2026, 5, 23))
+    window = resolve_window("mtd", date(2026, 5, 23))
     out = compute_net_charge_off(
         write_off_ledger=None, window=window, avg_outstanding_ghs=10_000,
     )
@@ -292,7 +298,7 @@ def test_recovery_on_churned_buckets_by_days_post_churn():
 
 
 def test_recovery_on_churned_empty_cohort_returns_zero():
-    window = resolve_window("monthly", date(2026, 5, 23))
+    window = resolve_window("mtd", date(2026, 5, 23))
     out = compute_recovery_on_churned(
         [], window=window, subscription_status_map={}, subscription_status_dates={},
     )

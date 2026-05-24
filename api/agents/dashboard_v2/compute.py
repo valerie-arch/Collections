@@ -46,34 +46,24 @@ def resolve_window(period: str, as_of: date,
                    end: Optional[date] = None) -> Window:
     """Map a period selector to a concrete (start, end, label) window.
 
-    Lifetime is modeled as a very wide window so the same compute paths
-    apply; callers can detect period=="lifetime" to skip filters.
+    Supported periods: MTD, Lifetime, Custom. MTD = first of current month
+    through `as_of` (i.e. month-to-date, NOT the full calendar month).
+    Lifetime is a wide window so the same compute paths apply.
     """
-    p = (period or "monthly").lower()
-    if p == "daily":
-        return Window("daily", as_of, as_of, as_of.strftime("%d %b %Y"))
-    if p == "weekly":
-        monday = as_of - timedelta(days=as_of.weekday())
-        sunday = monday + timedelta(days=6)
-        return Window("weekly", monday, sunday,
-                      f"Week of {monday.strftime('%d %b')}")
-    if p == "monthly":
+    p = (period or "mtd").lower()
+    if p == "mtd":
         first = as_of.replace(day=1)
-        if first.month == 12:
-            next_first = date(first.year + 1, 1, 1)
-        else:
-            next_first = date(first.year, first.month + 1, 1)
-        last = next_first - timedelta(days=1)
-        return Window("monthly", first, last, first.strftime("%B %Y"))
+        return Window("mtd", first, as_of,
+                      f"{first.strftime('%B %Y')} (MTD through {as_of.strftime('%d %b')})")
     if p == "lifetime":
         return Window("lifetime", date(2000, 1, 1), as_of, "Lifetime")
     if p == "custom":
         s = start or as_of.replace(day=1)
         e = end or as_of
         return Window("custom", s, e,
-                      f"{s.strftime('%d %b')} – {e.strftime('%d %b %Y')}")
-    # Fallback: treat unknown as monthly.
-    return resolve_window("monthly", as_of)
+                      f"{s.strftime('%d %b %Y')} – {e.strftime('%d %b %Y')}")
+    # Fallback: treat unknown as MTD.
+    return resolve_window("mtd", as_of)
 
 
 # ---------------------------------------------------------------------------
@@ -106,16 +96,19 @@ class ActivePayerRate:
 
 
 def compute_active_payer_rate(
-    invoices: list[InvoiceRow], *, as_of: date, lookback_days: int = 30,
+    invoices: list[InvoiceRow], *,
+    as_of: date, lookback_days: int = 30,
+    subscription_status_map: Optional[dict[str, tuple[str, bool]]] = None,
 ) -> ActivePayerRate:
-    """A rider is "active" if any of these hold: open balance, an invoice in
-    the last `lookback_days`, or a payment in the last `lookback_days`. A
-    rider is "paying" if any of their invoices had a `last_payment_date` in
-    the last `lookback_days`."""
+    """A rider is "active" iff their subscription status is "active" (not
+    recovery / completed) per the Zoho subscriptions map. A rider is
+    "paying" if they had any last_payment_date in the last `lookback_days`.
+
+    Tenure = MIN(invoice_date) per rider.
+    """
     cutoff = as_of - timedelta(days=lookback_days)
+    sub_map = subscription_status_map or {}
     first_invoice: dict[str, date] = {}
-    has_recent_invoice: set[str] = set()
-    has_open_balance: set[str] = set()
     has_recent_payment: set[str] = set()
 
     for inv in invoices:
@@ -125,20 +118,26 @@ def compute_active_payer_rate(
         prev = first_invoice.get(cid)
         if prev is None or inv.invoice_date < prev:
             first_invoice[cid] = inv.invoice_date
-        if inv.invoice_date >= cutoff:
-            has_recent_invoice.add(cid)
-        if inv.balance > 0:
-            has_open_balance.add(cid)
         if inv.last_payment_date and inv.last_payment_date >= cutoff:
             has_recent_payment.add(cid)
 
-    active_riders = has_recent_invoice | has_open_balance | has_recent_payment
+    # Active set: subscription status == "active". Fall back to "has any
+    # invoice on record" only if the sub map is empty (preserves usefulness
+    # in dev environments without subscription data).
+    if sub_map:
+        active_riders = {
+            cid for cid, (status, _is_tsa) in sub_map.items() if status == "active"
+        }
+    else:
+        active_riders = set(first_invoice.keys())
 
     # Bucket riders by tenure.
     by_bucket: dict[str, list[str]] = defaultdict(list)
     for cid in active_riders:
         fi = first_invoice.get(cid)
         if not fi:
+            # Active rider per subs but no invoice on record — bucket as 0-3m.
+            by_bucket["0-3m"].append(cid)
             continue
         days = (as_of - fi).days
         for label, lo, hi in TENURE_BUCKETS:
@@ -353,9 +352,18 @@ def compute_mrr(
     sub_map = subscription_status_map or {}
     sub_dates = subscription_status_dates or {}
 
-    # Active set this month = riders with at least one invoice in window.
+    # "Active" = subscription status == "active" (consistent with the
+    # platform-wide definition). MRR sums invoices issued in window only
+    # for riders who are NOT explicitly churned (recovery/completed) per
+    # the subscription map. Riders absent from the map are treated as
+    # unknown-status and included by default — otherwise the MRR collapses
+    # to zero whenever the sub map is partial.
     rider_first_invoice: dict[str, date] = {}
     rider_window_total: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    explicitly_churned_ids = {
+        cid for cid, (status, _t) in sub_map.items()
+        if status in {"recovery", "completed"}
+    }
     for inv in invoices:
         cid = inv.customer_id
         if not cid:
@@ -364,10 +372,9 @@ def compute_mrr(
         if prev is None or inv.invoice_date < prev:
             rider_first_invoice[cid] = inv.invoice_date
         if window.start <= inv.invoice_date <= window.end:
-            rider_window_total[cid] += inv.total
+            if cid not in explicitly_churned_ids:
+                rider_window_total[cid] += inv.total
 
-    # MRR per active rider this window = total invoiced this window
-    # (this is a proxy; over a 1-month window it IS the MRR).
     active_rider_ids = set(rider_window_total.keys())
     current_mrr = sum(rider_window_total.values(), Decimal("0"))
 

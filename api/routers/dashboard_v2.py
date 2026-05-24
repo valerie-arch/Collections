@@ -123,7 +123,7 @@ def _serialize(obj):
 
 @router.get("/snapshot")
 def dashboard_snapshot(
-    period: str = Query("monthly", pattern="^(daily|weekly|monthly|lifetime|custom)$"),
+    period: str = Query("mtd", pattern="^(mtd|lifetime|custom)$"),
     start: Optional[date] = None,
     end: Optional[date] = None,
     fleet: str = Query("All", pattern="^(All|Wahu|TSA)$"),
@@ -144,7 +144,9 @@ def dashboard_snapshot(
     window = resolve_window(period, today, start, end)
 
     # Compute everything.
-    active_payer = compute_active_payer_rate(invoices, as_of=today)
+    active_payer = compute_active_payer_rate(
+        invoices, as_of=today, subscription_status_map=sub_map,
+    )
     on_time = compute_on_time_rate(invoices, window=window)
     roll = blocked_roll_rates()
 

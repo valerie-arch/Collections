@@ -17,10 +17,11 @@ import clsx from "clsx";
 
 const items = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/payments", label: "Payments", icon: Banknote },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/portfolio", label: "Portfolio dashboard", icon: LineChart },
   { href: "/activities", label: "Activities", icon: ClipboardList },
-  { href: "/payments", label: "Payments", icon: Banknote },
   { href: "/suspense", label: "Suspense", icon: Wallet },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle },
   { href: "/quickbooks", label: "QuickBooks", icon: Calculator },

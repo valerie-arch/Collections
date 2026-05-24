@@ -37,6 +37,123 @@ def _parse_cutoff(s: Optional[str]) -> date:
     return datetime.fromisoformat(s).date()
 
 
+@router.get("/list")
+def list_payments(
+    channel: str = Query("all", pattern="^(all|mtn|telecel|hero|bank|cash|bolt_deduction|unknown)$"),
+    start: Optional[date] = None,
+    end: Optional[date] = None,
+    q: Optional[str] = None,
+    limit: int = Query(500, ge=1, le=5000),
+    offset: int = Query(0, ge=0),
+):
+    """Filterable view of all rider payments.
+
+    Sources: the Drive payments folder (MTN, Telecel, Bank, etc.) plus
+    Bolt approved-deduction rows synthesized from the weekly Workings
+    sheet. The reconciliation pipeline reads the same data — this endpoint
+    is the read-only listing for the /payments page.
+    """
+    from api.agents.payments.parser import parse_folder
+
+    PAYMENTS_LOCAL = Path("sample_inputs/payments")
+    rows: list[dict] = []
+
+    # MoMo / bank / cash receipts.
+    if PAYMENTS_LOCAL.exists():
+        for r in parse_folder(PAYMENTS_LOCAL):
+            d = r.date
+            rows.append({
+                "source": "receipt",
+                "channel": r.channel,
+                "date": d.isoformat() if d else None,
+                "amount_ghs": float(r.amount_ghs) if r.amount_ghs is not None else 0.0,
+                "sender_name": (r.raw_name or "").strip(),
+                "sender_phone": r.msisdn or "",
+                "reference": r.reference or "",
+                "narration": r.raw_name or "",
+                "source_file": r.source_file,
+                "txn_id": r.reference or "",
+            })
+
+    # Bolt approved-deduction synthetic receipts (the same ones Step 1
+    # appends to the receipts frame). We only have these once a CLI run
+    # has happened OR can pull them live from the Bolt Drive folder.
+    try:
+        from collections_v3.io_.bolt_earnings import (
+            load_bolt_earnings, synthesize_bolt_deduction_receipts,
+        )
+        bolt = load_bolt_earnings()
+        if not bolt.empty:
+            # We don't have rider_id in this read path (no invoice scoping),
+            # but the synthesizer requires it — fake one so the rows pass.
+            bolt = bolt.copy()
+            if "rider_id" not in bolt.columns:
+                bolt["rider_id"] = bolt["rider_name"].astype(str).str.upper().str.replace(" ", "_")
+            for r in synthesize_bolt_deduction_receipts(bolt).itertuples(index=False):
+                d = getattr(r, "date", None)
+                rows.append({
+                    "source": "bolt",
+                    "channel": "bolt_deduction",
+                    "date": d.isoformat() if d else None,
+                    "amount_ghs": float(getattr(r, "amount", 0.0) or 0.0),
+                    "sender_name": getattr(r, "sender_name", ""),
+                    "sender_phone": getattr(r, "sender_phone_canonical", ""),
+                    "reference": getattr(r, "reference", ""),
+                    "narration": getattr(r, "narration", ""),
+                    "source_file": getattr(r, "source_file", ""),
+                    "txn_id": getattr(r, "txn_id", ""),
+                })
+    except Exception as e:  # noqa: BLE001
+        logger.warning("could not load Bolt deductions: %s", e)
+
+    # Filters.
+    if channel != "all":
+        rows = [r for r in rows if r["channel"] == channel]
+    if start is not None:
+        s = start.isoformat()
+        rows = [r for r in rows if r["date"] and r["date"] >= s]
+    if end is not None:
+        e_iso = end.isoformat()
+        rows = [r for r in rows if r["date"] and r["date"] <= e_iso]
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            rows = [
+                r for r in rows
+                if needle in r["sender_name"].lower()
+                or needle in r["reference"].lower()
+                or needle in r["narration"].lower()
+                or needle in r["sender_phone"].lower()
+            ]
+
+    # Newest first.
+    rows.sort(key=lambda r: r["date"] or "", reverse=True)
+
+    total = len(rows)
+    page = rows[offset:offset + limit]
+    total_amount = sum(r["amount_ghs"] for r in rows)
+    counts_by_channel: dict[str, int] = {}
+    amounts_by_channel: dict[str, float] = {}
+    for r in rows:
+        counts_by_channel[r["channel"]] = counts_by_channel.get(r["channel"], 0) + 1
+        amounts_by_channel[r["channel"]] = (
+            amounts_by_channel.get(r["channel"], 0.0) + r["amount_ghs"]
+        )
+
+    return {
+        "total": total,
+        "total_amount_ghs": round(total_amount, 2),
+        "by_channel": {
+            ch: {"count": counts_by_channel[ch],
+                 "amount_ghs": round(amounts_by_channel[ch], 2)}
+            for ch in sorted(counts_by_channel)
+        },
+        "limit": limit,
+        "offset": offset,
+        "rows": page,
+    }
+
+
 @router.post("/sync")
 def sync_drive() -> dict:
     """Pull every payment file from the configured Drive folder."""
