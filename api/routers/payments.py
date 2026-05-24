@@ -97,10 +97,40 @@ def list_payments(
 ):
     """Filterable view of all rider payments with 5 dashboard KPIs.
 
-    Runs the reconciliation engine inline so we can mark each row matched/
-    unmatched, attach the rider name (when matched), and compute
-    payment-timeliness against the invoice's due_date.
+    Wrapped in a top-level try/except so the page can render even when
+    the cache is missing or a backend dependency hiccups; the error
+    message is surfaced in `_error` for the UI to display.
     """
+    try:
+        return _list_payments_impl(
+            view=view, channel=channel, match_status=match_status,
+            start=start, end=end, q=q, limit=limit, offset=offset, as_of=as_of,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.exception("/api/payments/list failed")
+        today = as_of or date.today()
+        return {
+            "as_of": today.isoformat(),
+            "window": {"period": view, "start": today.isoformat(),
+                       "end": today.isoformat(), "label": "—"},
+            "filters": {"view": view, "channel": channel, "match_status": match_status},
+            "summary": {
+                "total_payments": 0, "total_value_ghs": 0.0,
+                "unique_paying_riders": 0,
+                "matched_count": 0, "matched_value_ghs": 0.0,
+                "unmatched_count": 0, "unmatched_value_ghs": 0.0,
+                "by_method": [], "timeliness": [],
+            },
+            "row_total": 0, "limit": limit, "offset": offset, "rows": [],
+            "_error": f"{type(e).__name__}: {e}",
+        }
+
+
+def _list_payments_impl(
+    *, view: str, channel: str, match_status: str,
+    start: Optional[date], end: Optional[date], q: Optional[str],
+    limit: int, offset: int, as_of: Optional[date],
+):
     from api.agents.dashboard_v2.compute import resolve_window
     from api.agents.payments import reconcile_payments
     from api.agents.payments.parser import parse_folder

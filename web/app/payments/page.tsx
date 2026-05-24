@@ -121,10 +121,23 @@ export default async function PaymentsPage({
 
       {!data ? (
         <div className="surface p-8 text-center text-sm text-ink-fade">
-          Couldn't load payments. Sync from the Reconcile page first.
+          Couldn't reach the Payments API. The dev server may be down — check{" "}
+          <code className="font-mono text-xs">NEXT_PUBLIC_API_URL</code> and try
+          again, or hit <a href="/payments/reconcile" className="underline">Reconcile</a> to
+          force a fresh sync.
         </div>
       ) : (
         <>
+          {data._error && (
+            <div className="surface p-3 mb-4 border-l-2 border-clay-500 text-[12px] text-clay-700">
+              <strong>Server error:</strong> {data._error}{" "}
+              <span className="text-ink-fade">
+                — page is rendering with empty data. Try{" "}
+                <a href="/payments/reconcile" className="underline">Reconcile → Sync Drive</a>{" "}
+                to populate the cache.
+              </span>
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-3 mb-4">
             <CountCard summary={data.summary} />
             <ValueCard summary={data.summary} />

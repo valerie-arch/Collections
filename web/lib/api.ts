@@ -846,6 +846,7 @@ export type PaymentsListResponse = {
   limit: number;
   offset: number;
   rows: PaymentListRow[];
+  _error?: string;
 };
 
 export type OutliersResponse = {
