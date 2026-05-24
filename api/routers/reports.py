@@ -34,6 +34,7 @@ router = APIRouter()
 
 INVOICES_DIR = Path("sample_inputs/zoho/invoices")
 SUBSCRIPTIONS_DIR = Path("sample_inputs/zoho")
+PAYMENTS_DIR = Path("sample_inputs/payments")
 OS_FLEET_CSV = Path("sample_inputs/wahu_os/rider_fleet.csv")
 
 
@@ -110,6 +111,7 @@ def _build(
         name_fleet_map=_load_os_fleet(),
         agency_map=_resolve_agencies(invoices),
         agency_filter=agency if agency and agency != "All" else None,
+        payment_events=_load_payment_events(),
     )
 
 
@@ -127,6 +129,58 @@ def _resolve_agencies(invoices) -> dict[str, str]:
     derived = resolve_agency_map(invoices)
     manual = agency_store.agency_map()
     return {**derived, **manual}  # manual wins on conflict
+
+
+def _payments_mtime_key() -> float:
+    """Combined mtime of payments + invoices folders. Used to key the
+    payment_events cache so a fresh sync (which touches files) invalidates."""
+    mtimes: list[float] = []
+    if PAYMENTS_DIR.exists():
+        mtimes.extend(p.stat().st_mtime for p in PAYMENTS_DIR.glob("*"))
+    if INVOICES_DIR.exists():
+        mtimes.extend(p.stat().st_mtime for p in INVOICES_DIR.glob("*.csv"))
+    return max(mtimes, default=0.0)
+
+
+@lru_cache(maxsize=2)
+def _load_payment_events_cached(mtime_key: float):
+    """Reconcile payments → list[PaymentEvent] for the Reports engine.
+
+    A PaymentEvent is one applied-amount allocation: which rider's
+    payment landed on which invoice on which date. Cash-in-window on
+    Reports now sums these directly so the headline number matches the
+    Payments page (MTN/Telecel/Bank/Cash receipts + Bolt deductions)
+    instead of lagging behind whatever Finance has posted into Zoho.
+    """
+    from api.agents.collections_report.engine import PaymentEvent
+    from api.agents.payments import reconcile_payments
+
+    if not PAYMENTS_DIR.exists() or not INVOICES_DIR.exists():
+        return []
+    try:
+        rc = reconcile_payments(
+            payments_folder=PAYMENTS_DIR,
+            invoices_folder=INVOICES_DIR,
+            cutoff_date=date(2000, 1, 1),
+        )
+    except Exception:  # noqa: BLE001
+        return []
+    events: list[PaymentEvent] = []
+    for m in rc.matched:
+        if not m.payment.date:
+            continue
+        for alloc in m.allocations:
+            events.append(PaymentEvent(
+                rider_id=m.rider_id,
+                payment_date=m.payment.date,
+                applied_ghs=alloc.applied_ghs,
+                invoice_id=alloc.invoice_id,
+            ))
+    return events
+
+
+def _load_payment_events():
+    return _load_payment_events_cached(_payments_mtime_key())
 
 
 @router.get("/collections")

@@ -174,7 +174,8 @@ export default async function ReportsPage({
                     Cash flow this period
                   </h3>
                   <span className="text-[11px] text-ink-fade">
-                    All payments dated in {data.window?.label}
+                    All payments dated in {data.window?.label} · live
+                    from MTN / Telecel / Bank / Cash / Bolt
                   </span>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

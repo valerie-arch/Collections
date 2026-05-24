@@ -208,6 +208,19 @@ def _passes_fleet(rider_invoices: list[InvoiceRow], fleet: FleetFilter) -> bool:
     return not is_tsa_rider
 
 
+@dataclass
+class PaymentEvent:
+    """A single applied-amount allocation produced by the payments
+    reconciliation pipeline (api/agents/payments). Used by build_report
+    to compute cash-in-window from REAL payment events rather than from
+    invoice.last_payment_date (which only reflects payments already
+    posted to Zoho)."""
+    rider_id: str
+    payment_date: date
+    applied_ghs: Decimal
+    invoice_id: str          # the invoice this allocation went against
+
+
 def build_report(
     invoices: Iterable[InvoiceRow],
     *,
@@ -222,6 +235,7 @@ def build_report(
     name_fleet_map: dict[str, str] | None = None,
     agency_map: dict[str, str] | None = None,
     agency_filter: str | None = None,
+    payment_events: list["PaymentEvent"] | None = None,
 ) -> ReportData:
     """Build the report.
 
@@ -410,28 +424,46 @@ def build_report(
     total_collected = sum((s.lifetime_collected_ghs for s in scorecards), Decimal("0"))
     total_outstanding = sum((s.lifetime_outstanding_ghs for s in scorecards), Decimal("0"))
 
-    # Cash-in-window: payments where Last Payment Date falls inside the window.
-    # Split it into two:
-    #   - cash_applied_to_period_ghs: cash that landed on invoices issued in window
-    #   - cash_applied_to_prior_ghs:  cash that landed on invoices issued earlier
-    # Sum = cash_in_window_ghs (true cash flow in window).
+    # Cash-in-window: payments inside [win_start, win_end].
+    # When `payment_events` is provided (live from the reconciliation
+    # pipeline — MTN/Telecel/Bank/Cash receipts + Bolt deductions, matched
+    # to riders and allocated to invoices), use it as the source of truth.
+    # Otherwise fall back to invoice.last_payment_date from the Zoho
+    # export (lags reconciliation by however long Finance takes to post).
     cash_in_window = Decimal("0")
     cash_applied_period = Decimal("0")
     cash_applied_prior = Decimal("0")
     paying_rider_ids: set[str] = set()
-    for inv in invoices:
-        if (
-            inv.last_payment_date
-            and win_start <= inv.last_payment_date <= win_end
-            and inv.customer_id in surviving_rider_ids
-        ):
-            paid = inv.total - inv.balance
-            cash_in_window += paid
-            paying_rider_ids.add(inv.customer_id)
-            if win_start <= inv.invoice_date <= win_end:
-                cash_applied_period += paid
+    if payment_events is not None:
+        invoice_date_by_id: dict[str, date] = {
+            i.invoice_id: i.invoice_date for i in invoices
+        }
+        for ev in payment_events:
+            if ev.rider_id not in surviving_rider_ids:
+                continue
+            if not (win_start <= ev.payment_date <= win_end):
+                continue
+            cash_in_window += ev.applied_ghs
+            paying_rider_ids.add(ev.rider_id)
+            inv_issue_date = invoice_date_by_id.get(ev.invoice_id)
+            if inv_issue_date and win_start <= inv_issue_date <= win_end:
+                cash_applied_period += ev.applied_ghs
             else:
-                cash_applied_prior += paid
+                cash_applied_prior += ev.applied_ghs
+    else:
+        for inv in invoices:
+            if (
+                inv.last_payment_date
+                and win_start <= inv.last_payment_date <= win_end
+                and inv.customer_id in surviving_rider_ids
+            ):
+                paid = inv.total - inv.balance
+                cash_in_window += paid
+                paying_rider_ids.add(inv.customer_id)
+                if win_start <= inv.invoice_date <= win_end:
+                    cash_applied_period += paid
+                else:
+                    cash_applied_prior += paid
 
     return ReportData(
         view=view,
