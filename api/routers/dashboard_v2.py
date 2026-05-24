@@ -121,6 +121,53 @@ def _serialize(obj):
     return obj
 
 
+@router.get("/trends")
+def dashboard_trends(
+    lookback: str = Query("12m", pattern="^(3m|6m|12m|all)$"),
+    fleet: str = Query("All", pattern="^(All|Wahu|TSA)$"),
+    as_of: Optional[date] = None,
+):
+    """Four trend series (Collections Rate, MRR Movement, Charge-off,
+    Lifetime Efficiency) over the requested lookback window."""
+    from api.agents.dashboard_v2.trends import (
+        charge_off_trend, collections_rate_trend, lifetime_efficiency_trend,
+        month_axis, mrr_movement_trend,
+    )
+
+    invoices = _load_invoices()
+    if not invoices:
+        raise HTTPException(
+            status_code=400,
+            detail="No invoice data — sync from Drive first.",
+        )
+    invoices = _filter_by_fleet(invoices, fleet)
+    sub_map, sub_dates = _load_subs()
+    ledger = _load_ledger()
+
+    today = as_of or date.today()
+    axis = month_axis(today, lookback)
+
+    cr = collections_rate_trend(invoices, axis)
+    mrr = mrr_movement_trend(
+        invoices, axis,
+        subscription_status_map=sub_map,
+        subscription_status_dates=sub_dates,
+    )
+    co = charge_off_trend(ledger, axis)
+    eff = lifetime_efficiency_trend(invoices, axis)
+
+    return {
+        "as_of": today.isoformat(),
+        "fleet": fleet,
+        "lookback": lookback,
+        "axis": {"labels": axis.labels},
+        "collections_rate": _serialize(cr),
+        "mrr_movement": _serialize(mrr),
+        "charge_off": _serialize(co),
+        "lifetime_efficiency": _serialize(eff),
+    }
+
+
 @router.get("/snapshot")
 def dashboard_snapshot(
     period: str = Query("mtd", pattern="^(mtd|lifetime|custom)$"),

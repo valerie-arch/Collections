@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/PageHeader";
 import {
-  api, DashboardPeriod, DashboardSnapshot, ReportFleet,
+  api, DashboardLookback, DashboardPeriod, DashboardSnapshot,
+  DashboardTrends, ReportFleet,
 } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ const PERIOD_LABEL: Record<DashboardPeriod, string> = {
   custom: "Custom",
 };
 const FLEETS: ReportFleet[] = ["All", "Wahu", "TSA"];
+const LOOKBACKS: DashboardLookback[] = ["3m", "6m", "12m", "all"];
+const LOOKBACK_LABEL: Record<DashboardLookback, string> = {
+  "3m": "3 mo", "6m": "6 mo", "12m": "12 mo", "all": "All",
+};
 
 function fmtGhs0(n: number) {
   return `GHS ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -31,6 +36,7 @@ export default async function PortfolioDashboardPage({
     start?: string;
     end?: string;
     fleet?: string;
+    lookback?: string;
   };
 }) {
   const period: DashboardPeriod = (PERIODS as readonly string[]).includes(
@@ -43,15 +49,19 @@ export default async function PortfolioDashboardPage({
   )
     ? (searchParams!.fleet as ReportFleet)
     : "All";
+  const lookback: DashboardLookback = (LOOKBACKS as readonly string[]).includes(
+    searchParams?.lookback ?? "",
+  )
+    ? (searchParams!.lookback as DashboardLookback)
+    : "12m";
 
-  const data = await api
-    .dashboardSnapshot({
-      period,
-      fleet,
-      start: searchParams?.start,
-      end: searchParams?.end,
-    })
-    .catch(() => null);
+  const [data, trends] = await Promise.all([
+    api.dashboardSnapshot({
+      period, fleet,
+      start: searchParams?.start, end: searchParams?.end,
+    }).catch(() => null),
+    api.dashboardTrends({ lookback, fleet }).catch(() => null),
+  ]);
 
   if (!data) {
     return (
@@ -118,11 +128,276 @@ export default async function PortfolioDashboardPage({
         <RecoveryCard data={data.portfolio.recovery_on_churned} />
       </div>
 
+      {/* TRENDS SECTION */}
+      {trends && (
+        <>
+          <div className="mt-12 mb-3 flex items-baseline justify-between">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-base font-display tracking-tightest text-ink">Trends</h2>
+              <span className="text-[11px] text-ink-fade">
+                Where the portfolio is heading — trailing {LOOKBACK_LABEL[lookback]}
+              </span>
+            </div>
+            <LookbackChips
+              current={lookback} period={period} fleet={fleet}
+              start={searchParams?.start} end={searchParams?.end}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 mb-4">
+            <CollectionsRateTrendCard data={trends.collections_rate} />
+            <MrrMovementTrendCard data={trends.mrr_movement} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 mb-4">
+            <ChargeOffTrendCard data={trends.charge_off} />
+            <LifetimeEfficiencyTrendCard data={trends.lifetime_efficiency} />
+          </div>
+        </>
+      )}
+
       <div className="mt-8 text-[11px] text-ink-fade font-mono">
         as_of {data.as_of} · invoices loaded: {data.data_sources.invoices.toLocaleString()}{" "}
         · write-off ledger: {data.data_sources.write_off_ledger_loaded ? "yes" : "no"}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lookback chip selector for the Trends section
+// ---------------------------------------------------------------------------
+
+function LookbackChips({
+  current, period, fleet, start, end,
+}: {
+  current: DashboardLookback;
+  period: DashboardPeriod;
+  fleet: ReportFleet;
+  start?: string;
+  end?: string;
+}) {
+  const hrefFor = (lookback: DashboardLookback) => {
+    const params = new URLSearchParams();
+    if (period !== "mtd") params.set("period", period);
+    if (fleet !== "All") params.set("fleet", fleet);
+    if (period === "custom" && start) params.set("start", start);
+    if (period === "custom" && end) params.set("end", end);
+    if (lookback !== "12m") params.set("lookback", lookback);
+    return params.toString() ? `?${params.toString()}` : "?";
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">Lookback</span>
+      <div className="flex gap-0.5 bg-canvas-sunken p-0.5 rounded-md">
+        {LOOKBACKS.map((lb) => (
+          <a
+            key={lb}
+            href={hrefFor(lb)}
+            className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+              current === lb
+                ? "bg-canvas-raised text-ink shadow-card"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {LOOKBACK_LABEL[lb]}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Trend cards (server-rendered SVG/CSS, no client libs)
+// ---------------------------------------------------------------------------
+
+function CollectionsRateTrendCard({
+  data,
+}: {
+  data: DashboardTrends["collections_rate"];
+}) {
+  const maxInv = Math.max(1, ...data.points.map((p) => p.invoiced_ghs));
+  return (
+    <section className="surface p-5">
+      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+        Collections rate trend
+      </div>
+      <div className="text-[11px] text-ink-fade mt-0.5">
+        Monthly rate (line) over invoiced (bar) and collected (overlay) ·
+        target {data.target_pct.toFixed(0)}%
+      </div>
+      <div className="mt-4 space-y-1.5">
+        {data.points.map((p) => {
+          const invPct = p.invoiced_ghs / maxInv;
+          const colPct = p.invoiced_ghs > 0 ? p.collected_ghs / p.invoiced_ghs : 0;
+          const targetReached = p.rate_pct >= data.target_pct;
+          return (
+            <div key={p.label} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-[11px]">
+              <span className="font-mono text-ink-fade">{p.label}</span>
+              <div className="relative h-4 bg-canvas-sunken rounded">
+                <div className="absolute inset-y-0 left-0 bg-accent-500/50 rounded"
+                     style={{ width: `${invPct * 100}%` }} />
+                <div className="absolute inset-y-0 left-0 bg-moss-500 rounded"
+                     style={{ width: `${invPct * colPct * 100}%` }} />
+              </div>
+              <span className={`font-mono whitespace-nowrap ${targetReached ? "text-moss-600" : "text-ink"}`}>
+                {fmtPct(p.rate_pct)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 text-[10px] text-ink-fade flex items-center gap-3">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-accent-500/50" /> Invoiced
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-sm bg-moss-500" /> Collected
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function MrrMovementTrendCard({
+  data,
+}: {
+  data: DashboardTrends["mrr_movement"];
+}) {
+  const lastClosing = data.points.length > 0
+    ? data.points[data.points.length - 1].closing_ghs : 0;
+  return (
+    <section className="surface p-5">
+      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+        MRR movement
+      </div>
+      <div className="mt-1 text-2xl font-display tracking-tightest text-ink">
+        {fmtGhs0(lastClosing)}
+      </div>
+      <div className="text-[11px] text-ink-fade mt-0.5">
+        Latest closing · per-month new/reactivated/churned/net
+      </div>
+      <div className="mt-4">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-ink-fade">
+              <th className="text-left font-medium">Month</th>
+              <th className="text-right font-medium">New</th>
+              <th className="text-right font-medium">Reactivated</th>
+              <th className="text-right font-medium">Churned</th>
+              <th className="text-right font-medium">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.points.slice(-12).map((p) => (
+              <tr key={p.label} className="border-t border-canvas-line/60">
+                <td className="py-1 font-mono text-ink-fade">{p.label}</td>
+                <td className="py-1 text-right font-mono text-moss-600">+{fmtGhs0(p.new_ghs)}</td>
+                <td className="py-1 text-right font-mono text-moss-600">
+                  {p.reactivated_ghs > 0 ? `+${fmtGhs0(p.reactivated_ghs)}` : "—"}
+                </td>
+                <td className="py-1 text-right font-mono text-clay-600">
+                  {p.churned_ghs > 0 ? `-${fmtGhs0(p.churned_ghs)}` : "—"}
+                </td>
+                <td className={`py-1 text-right font-mono ${p.net_new_ghs >= 0 ? "text-moss-600" : "text-clay-600"}`}>
+                  {p.net_new_ghs >= 0 ? "+" : ""}{fmtGhs0(p.net_new_ghs)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function ChargeOffTrendCard({
+  data,
+}: {
+  data: DashboardTrends["charge_off"];
+}) {
+  if (!data.available) {
+    return (
+      <section className="surface p-5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Net charge-off trend
+        </div>
+        <div className="mt-3 border border-dashed border-canvas-line rounded p-3 text-[11px] text-ink-fade leading-relaxed">
+          <span className="font-medium text-ink-muted">No data.</span> {data.reason}
+        </div>
+      </section>
+    );
+  }
+  const maxNet = Math.max(1, ...data.points.map((p) => Math.abs(p.net_ghs)));
+  return (
+    <section className="surface p-5">
+      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+        Net charge-off trend
+      </div>
+      <div className="text-[11px] text-ink-fade mt-0.5">
+        Monthly write-offs minus recoveries (GHS)
+      </div>
+      <div className="mt-4 space-y-1.5">
+        {data.points.map((p) => (
+          <div key={p.label} className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-2 text-[11px]">
+            <span className="font-mono text-ink-fade">{p.label}</span>
+            <div className="h-2 bg-canvas-sunken rounded">
+              <div className="h-full bg-clay-500 rounded"
+                   style={{ width: `${(Math.abs(p.net_ghs) / maxNet) * 100}%` }} />
+            </div>
+            <span className="font-mono text-ink whitespace-nowrap">{fmtGhs0(p.net_ghs)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 text-[10px] text-ink-fade">
+        Cure-rate line deferred until the daily snapshot writer ships.
+      </div>
+    </section>
+  );
+}
+
+function LifetimeEfficiencyTrendCard({
+  data,
+}: {
+  data: DashboardTrends["lifetime_efficiency"];
+}) {
+  const last = data.points[data.points.length - 1];
+  if (!last) return null;
+  // Build an inline SVG sparkline of efficiency_pct over time.
+  const w = 600;
+  const h = 80;
+  const pad = 8;
+  const xs = data.points.map((_, i) =>
+    pad + (i * (w - pad * 2)) / Math.max(1, data.points.length - 1),
+  );
+  const minEff = Math.min(...data.points.map((p) => p.efficiency_pct));
+  const maxEff = Math.max(...data.points.map((p) => p.efficiency_pct));
+  const range = Math.max(1, maxEff - minEff);
+  const ys = data.points.map((p) =>
+    h - pad - ((p.efficiency_pct - minEff) / range) * (h - pad * 2),
+  );
+  const path = xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(" ");
+  return (
+    <section className="surface p-5">
+      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+        Lifetime efficiency
+      </div>
+      <div className="mt-1 text-3xl font-display tracking-tightest text-moss-600">
+        {fmtPct(last.efficiency_pct)}
+      </div>
+      <div className="text-[11px] text-ink-fade mt-0.5">
+        Cumulative collected ÷ invoiced (always lifetime; lookback affects display only)
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="mt-3 w-full h-20" preserveAspectRatio="none">
+        <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-moss-600" />
+        {xs.map((x, i) => (
+          <circle key={i} cx={x} cy={ys[i]} r="1.5" className="text-moss-600" fill="currentColor" />
+        ))}
+      </svg>
+      <div className="mt-2 flex justify-between text-[10px] font-mono text-ink-fade">
+        <span>{data.points[0]?.label} · {fmtPct(data.points[0]?.efficiency_pct ?? 0)}</span>
+        <span>{last.label} · {fmtPct(last.efficiency_pct)}</span>
+      </div>
+    </section>
   );
 }
 

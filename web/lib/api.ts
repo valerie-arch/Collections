@@ -67,6 +67,12 @@ export const api = {
       `/api/dashboard-v2/snapshot?${qs(params as any)}`,
     ),
 
+  // Dashboard v2 trends — Collections Rate, MRR Movement, Charge-off, Lifetime Efficiency
+  dashboardTrends: (params: DashboardTrendsQuery = {}) =>
+    request<DashboardTrends>(
+      `/api/dashboard-v2/trends?${qs(params as any)}`,
+    ),
+
   // Invoices listing (filterable)
   invoicesList: (params: InvoicesListQuery = {}) =>
     request<InvoicesListResponse>(`/api/invoices/list?${qs(params as any)}`),
@@ -626,6 +632,79 @@ export type DashboardSnapshot = {
     cure_rate: BlockedKpi;
     net_charge_off: NetChargeOff;
     recovery_on_churned: RecoveryOnChurned;
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Dashboard v2 — Trends section
+// ---------------------------------------------------------------------------
+
+export type DashboardLookback = "3m" | "6m" | "12m" | "all";
+
+export type DashboardTrendsQuery = {
+  lookback?: DashboardLookback;
+  fleet?: ReportFleet;
+  as_of?: string;
+};
+
+export type CollectionsRatePoint = {
+  label: string;
+  year: number;
+  month: number;
+  invoiced_ghs: number;
+  collected_ghs: number;
+  rate_pct: number;
+};
+
+export type MrrMovementPoint = {
+  label: string;
+  year: number;
+  month: number;
+  opening_ghs: number;
+  new_ghs: number;
+  reactivated_ghs: number;
+  churned_ghs: number;
+  closing_ghs: number;
+  net_new_ghs: number;
+};
+
+export type ChargeOffPoint = {
+  label: string;
+  year: number;
+  month: number;
+  charge_offs_ghs: number;
+  recoveries_ghs: number;
+  net_ghs: number;
+};
+
+export type LifetimeEfficiencyPoint = {
+  label: string;
+  year: number;
+  month: number;
+  cumulative_invoiced_ghs: number;
+  cumulative_collected_ghs: number;
+  efficiency_pct: number;
+};
+
+export type DashboardTrends = {
+  as_of: string;
+  fleet: ReportFleet;
+  lookback: DashboardLookback;
+  axis: { labels: string[] };
+  collections_rate: {
+    target_pct: number;
+    points: CollectionsRatePoint[];
+  };
+  mrr_movement: {
+    points: MrrMovementPoint[];
+  };
+  charge_off: {
+    available: boolean;
+    points: ChargeOffPoint[];
+    reason: string;
+  };
+  lifetime_efficiency: {
+    points: LifetimeEfficiencyPoint[];
   };
 };
 
