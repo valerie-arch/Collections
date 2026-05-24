@@ -181,6 +181,7 @@ def _save_payments_state(state: dict[str, str]) -> None:
 
 
 GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet"
+FOLDER_MIME = "application/vnd.google-apps.folder"
 
 
 def _download_payment_file(client, drive_file) -> tuple[bytes, str]:
@@ -199,52 +200,90 @@ def _download_payment_file(client, drive_file) -> tuple[bytes, str]:
     return data, name
 
 
+_PAYMENT_ACCEPTED_MIME = {
+    "text/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/octet-stream",  # some MoMo exports get tagged this way
+    GOOGLE_SHEET_MIME,
+}
+
+
+def _walk_payment_files(
+    client, folder_id: str, *, depth: int = 0, max_depth: int = 3,
+    prefix: str = "",
+) -> list[tuple]:
+    """Walk a Drive folder for payment files, recursing into subfolders.
+
+    Yields (drive_file, prefix_path) so files in subfolders like
+    'Payments/MTN/file.csv' get a prefix 'MTN_' applied to their saved
+    local filename — preserves channel attribution AND avoids collisions
+    when two channels have files with the same name.
+    """
+    if depth > max_depth:
+        return []
+    out: list[tuple] = []
+    for f in client.list_folder(folder_id):
+        if f.mime_type == FOLDER_MIME:
+            sub_prefix = f"{prefix}{_safe_filename(f.name)}_"
+            out.extend(_walk_payment_files(
+                client, f.id, depth=depth + 1, max_depth=max_depth,
+                prefix=sub_prefix,
+            ))
+            continue
+        is_payment = (
+            f.mime_type in _PAYMENT_ACCEPTED_MIME
+            or f.name.lower().endswith((".csv", ".xlsx", ".xls"))
+        )
+        if is_payment:
+            out.append((f, prefix))
+    return out
+
+
 def sync_payments(folder_id: Optional[str] = None) -> dict:
     """Pull every payment file from the payments Drive folder.
 
-    Accepts CSV, XLSX, AND native Google Sheets (exported as CSV).
+    Walks subfolders one level deep so a Payments/{MTN,Telecel,Bank,Cash}
+    layout is handled correctly. Subfolder names are prepended to the
+    local filename (e.g. `MTN_<name>.csv`) to preserve channel context
+    and avoid collisions between identically-named files.
+
+    Accepts CSV, XLSX, and native Google Sheets (exported as CSV).
     """
     folder_id = folder_id or settings.PAYMENTS_DRIVE_FOLDER_ID
     PAYMENTS_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
 
     client = get_drive_client()
-    files = client.list_folder(folder_id)
-
-    accepted_mime = {
-        "text/csv",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/octet-stream",  # some MoMo exports get tagged this way
-        GOOGLE_SHEET_MIME,
-    }
-    files = [
-        f for f in files
-        if f.mime_type in accepted_mime
-        or f.name.lower().endswith((".csv", ".xlsx", ".xls"))
-    ]
+    walked = _walk_payment_files(client, folder_id)
 
     state = _load_payments_state()
     downloaded: list[str] = []
     skipped: list[str] = []
 
-    for f in files:
-        # For Google Sheets we use modifiedTime to detect changes since the
-        # exported bytes differ run-to-run.
+    for f, prefix in walked:
         cache_key = f.modified_time
-        if state.get(f.id) == cache_key:
-            target_name = f.name if f.mime_type != GOOGLE_SHEET_MIME else (
-                f.name if f.name.lower().endswith(".csv") else f.name + ".csv"
-            )
-            if (PAYMENTS_LOCAL_DIR / _safe_filename(target_name)).exists():
-                skipped.append(f.name)
-                continue
-        logger.info("downloading payment file %s (%s)", f.name, f.mime_type)
+        # Compute the target name early so the skip check uses the same
+        # filename that download would write.
+        target_name = f.name if f.mime_type != GOOGLE_SHEET_MIME else (
+            f.name if f.name.lower().endswith(".csv") else f.name + ".csv"
+        )
+        target_name = prefix + target_name
+        local_path = PAYMENTS_LOCAL_DIR / _safe_filename(target_name)
+
+        if state.get(f.id) == cache_key and local_path.exists():
+            skipped.append(target_name)
+            continue
+        logger.info(
+            "downloading payment file %s (%s) -> %s",
+            f.name, f.mime_type, target_name,
+        )
         try:
-            data, target_name = _download_payment_file(client, f)
+            data, raw_name = _download_payment_file(client, f)
         except Exception as e:
             logger.exception("failed to download %s: %s", f.name, e)
             continue
-        local_path = PAYMENTS_LOCAL_DIR / _safe_filename(target_name)
+        # _download_payment_file returns the raw name; we use our prefixed
+        # version for the local path so subfolder context survives.
         local_path.write_bytes(data)
         state[f.id] = cache_key
         downloaded.append(target_name)
@@ -253,7 +292,7 @@ def sync_payments(folder_id: Optional[str] = None) -> dict:
 
     return {
         "folder_id": folder_id,
-        "total": len(files),
+        "total": len(walked),
         "downloaded": downloaded,
         "skipped": skipped,
     }
