@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from api.config import settings
 from api.database import init_db, get_db
-from api.routers import activities, agencies, dashboard, drives, exceptions, health, payments, quickbooks, reports, runs, suspense, trends
+from api.routers import activities, agencies, dashboard, dashboard_v2, drives, exceptions, health, payments, quickbooks, reports, runs, suspense, trends
 from api.scheduler import init_scheduler
 
 
@@ -46,6 +46,7 @@ app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(drives.router, prefix="/api/drives", tags=["Drives"])
 app.include_router(agencies.router, prefix="/api/agencies", tags=["Agencies"])
 app.include_router(trends.router, prefix="/api/trends", tags=["Trends"])
+app.include_router(dashboard_v2.router, prefix="/api/dashboard-v2", tags=["DashboardV2"])
 app.include_router(suspense.router, prefix="/api/suspense", tags=["Suspense"])
 app.include_router(quickbooks.router, prefix="/api/quickbooks", tags=["QuickBooks"])
 app.include_router(activities.router, prefix="/api/activities", tags=["Activities"])

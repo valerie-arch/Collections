@@ -61,6 +61,12 @@ export const api = {
   portfolioDownloadUrl: (months_back = 24, fleet: ReportFleet = "All") =>
     `${BASE}/api/trends/portfolio/download?months_back=${months_back}&fleet=${fleet}`,
 
+  // Dashboard v2 — 10 KPIs
+  dashboardSnapshot: (params: DashboardSnapshotQuery = {}) =>
+    request<DashboardSnapshot>(
+      `/api/dashboard-v2/snapshot?${qs(params as any)}`,
+    ),
+
   // Drive
   driveSync: () =>
     request<{
@@ -473,6 +479,147 @@ export type QbPreviewResponse = {
   total_amount_ghs: number;
   rows: Record<string, any>[];
   _note?: string;
+};
+
+// ---------------------------------------------------------------------------
+// Dashboard v2 — 10 KPIs
+// ---------------------------------------------------------------------------
+
+export type DashboardPeriod =
+  | "daily" | "weekly" | "monthly" | "lifetime" | "custom";
+
+export type DashboardSnapshotQuery = {
+  period?: DashboardPeriod;
+  start?: string;        // YYYY-MM-DD
+  end?: string;
+  fleet?: ReportFleet;
+  as_of?: string;
+};
+
+export type TenureSegment = {
+  tenure: string;
+  active_riders: number;
+  paying_riders: number;
+  rate_pct: number;
+};
+
+export type ActivePayerRate = {
+  overall_rate_pct: number;
+  overall_paying: number;
+  overall_active: number;
+  by_tenure: TenureSegment[];
+  lookback_days: number;
+};
+
+export type OnTimeRate = {
+  on_time_pct: number;
+  on_time_count: number;
+  total_paid_count: number;
+  note: string;
+};
+
+export type BlockedKpi = { available: false; reason: string };
+
+export type CollectionSplits = {
+  fully_paid_riders: number;
+  partial_riders: number;
+  no_pay_riders: number;
+};
+
+export type MonthlyCollectionsRate = {
+  invoiced_ghs: number;
+  collected_ghs: number;
+  gross_rate_pct: number;
+  write_offs_ghs: number;
+  net_rate_pct: number;
+  splits: CollectionSplits;
+};
+
+export type MrrSnapshot = {
+  current_ghs: number;
+  new_ghs: number;
+  churned_ghs: number;
+  reactivated_ghs: number;
+  net_new_ghs: number;
+  active_riders: number;
+  new_riders: number;
+  churned_riders: number;
+};
+
+export type AgingBucket = {
+  label: string;
+  rider_count: number;
+  open_invoice_count: number;
+  ghs: number;
+  pct_of_ghs: number;
+};
+
+export type AgingDistribution = {
+  as_of: string;
+  buckets: AgingBucket[];
+  total_outstanding_ghs: number;
+  total_riders_with_balance: number;
+};
+
+export type LifetimeEfficiency = {
+  invoiced_ghs: number;
+  collected_ghs: number;
+  outstanding_ghs: number;
+  efficiency_pct: number;
+};
+
+export type NetChargeOff = {
+  available: boolean;
+  charge_offs_ghs: number;
+  recoveries_ghs: number;
+  net_ghs: number;
+  avg_outstanding_ghs: number;
+  annualized_pct: number;
+  window_days: number;
+  reason: string;
+};
+
+export type RecoveryByDays = { bucket: string; ghs: number };
+
+export type RecoveryOnChurned = {
+  cohort_size: number;
+  cohort_outstanding_at_churn_ghs: number;
+  recovered_ghs: number;
+  recovery_rate_pct: number;
+  by_days_post_churn: RecoveryByDays[];
+  note: string;
+};
+
+export type DashboardSnapshot = {
+  as_of: string;
+  fleet: ReportFleet;
+  window: {
+    period: DashboardPeriod;
+    start: string;
+    end: string;
+    label: string;
+  };
+  data_sources: {
+    invoices: number;
+    write_off_ledger_loaded: boolean;
+    subscriptions_loaded: boolean;
+  };
+  behavioral: {
+    active_payer_rate: ActivePayerRate;
+    on_time_payment_rate: OnTimeRate;
+    roll_rates: BlockedKpi;
+  };
+  financial: {
+    monthly_collections_rate: MonthlyCollectionsRate;
+    mrr: MrrSnapshot;
+  };
+  portfolio: {
+    aging: AgingDistribution;
+    lifetime_efficiency: LifetimeEfficiency;
+    cure_rate: BlockedKpi;
+    net_charge_off: NetChargeOff;
+    recovery_on_churned: RecoveryOnChurned;
+  };
 };
 
 export type OutliersResponse = {

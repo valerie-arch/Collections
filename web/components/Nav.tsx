@@ -18,7 +18,7 @@ import clsx from "clsx";
 const items = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/reports", label: "Reports", icon: FileText },
-  { href: "/portfolio", label: "Portfolio trends", icon: LineChart },
+  { href: "/portfolio", label: "Portfolio dashboard", icon: LineChart },
   { href: "/activities", label: "Activities", icon: ClipboardList },
   { href: "/payments", label: "Payments", icon: Banknote },
   { href: "/suspense", label: "Suspense", icon: Wallet },
