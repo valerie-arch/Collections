@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import {
-  api, DashboardLookback, DashboardPeriod, DashboardSnapshot,
+  api, DashboardAgency, DashboardLookback, DashboardPeriod, DashboardSnapshot,
   DashboardTrends, ReportFleet,
 } from "@/lib/api";
 
@@ -13,6 +13,7 @@ const PERIOD_LABEL: Record<DashboardPeriod, string> = {
   custom: "Custom",
 };
 const FLEETS: ReportFleet[] = ["All", "Wahu", "TSA"];
+const AGENCIES: DashboardAgency[] = ["All", "Hortta", "TSAC"];
 const LOOKBACKS: DashboardLookback[] = ["3m", "6m", "12m", "all"];
 const LOOKBACK_LABEL: Record<DashboardLookback, string> = {
   "3m": "3 mo", "6m": "6 mo", "12m": "12 mo", "all": "All",
@@ -36,6 +37,7 @@ export default async function PortfolioDashboardPage({
     start?: string;
     end?: string;
     fleet?: string;
+    agency?: string;
     lookback?: string;
   };
 }) {
@@ -49,6 +51,11 @@ export default async function PortfolioDashboardPage({
   )
     ? (searchParams!.fleet as ReportFleet)
     : "All";
+  const agency: DashboardAgency = (AGENCIES as readonly string[]).includes(
+    searchParams?.agency ?? "",
+  )
+    ? (searchParams!.agency as DashboardAgency)
+    : "All";
   const lookback: DashboardLookback = (LOOKBACKS as readonly string[]).includes(
     searchParams?.lookback ?? "",
   )
@@ -57,10 +64,10 @@ export default async function PortfolioDashboardPage({
 
   const [data, trends] = await Promise.all([
     api.dashboardSnapshot({
-      period, fleet,
+      period, fleet, agency,
       start: searchParams?.start, end: searchParams?.end,
     }).catch(() => null),
-    api.dashboardTrends({ lookback, fleet }).catch(() => null),
+    api.dashboardTrends({ lookback, fleet, agency }).catch(() => null),
   ]);
 
   if (!data) {
@@ -81,12 +88,13 @@ export default async function PortfolioDashboardPage({
     <div className="px-10 py-12 max-w-7xl">
       <PageHeader
         eyebrow="Portfolio dashboard"
-        title={`${data.window.label} — ${fleet}`}
+        title={`${data.window.label} — ${fleet}${agency !== "All" ? ` · ${agency}` : ""}`}
         description="Behavioral (early warning) · Financial (this period) · Portfolio (cumulative health)"
         actions={
           <PeriodFleetSelector
             period={period}
             fleet={fleet}
+            agency={agency}
             start={searchParams?.start}
             end={searchParams?.end}
           />
@@ -139,7 +147,7 @@ export default async function PortfolioDashboardPage({
               </span>
             </div>
             <LookbackChips
-              current={lookback} period={period} fleet={fleet}
+              current={lookback} period={period} fleet={fleet} agency={agency}
               start={searchParams?.start} end={searchParams?.end}
             />
           </div>
@@ -167,11 +175,12 @@ export default async function PortfolioDashboardPage({
 // ---------------------------------------------------------------------------
 
 function LookbackChips({
-  current, period, fleet, start, end,
+  current, period, fleet, agency, start, end,
 }: {
   current: DashboardLookback;
   period: DashboardPeriod;
   fleet: ReportFleet;
+  agency: DashboardAgency;
   start?: string;
   end?: string;
 }) {
@@ -179,6 +188,7 @@ function LookbackChips({
     const params = new URLSearchParams();
     if (period !== "mtd") params.set("period", period);
     if (fleet !== "All") params.set("fleet", fleet);
+    if (agency !== "All") params.set("agency", agency);
     if (period === "custom" && start) params.set("start", start);
     if (period === "custom" && end) params.set("end", end);
     if (lookback !== "12m") params.set("lookback", lookback);
@@ -406,20 +416,23 @@ function LifetimeEfficiencyTrendCard({
 // ---------------------------------------------------------------------------
 
 function PeriodFleetSelector({
-  period, fleet, start, end,
+  period, fleet, agency, start, end,
 }: {
   period: DashboardPeriod;
   fleet: ReportFleet;
+  agency: DashboardAgency;
   start?: string;
   end?: string;
 }) {
   const hrefFor = (overrides: Partial<{
-    period: DashboardPeriod; fleet: ReportFleet; start: string; end: string;
+    period: DashboardPeriod; fleet: ReportFleet; agency: DashboardAgency;
+    start: string; end: string;
   }>) => {
-    const next = { period, fleet, start, end, ...overrides };
+    const next = { period, fleet, agency, start, end, ...overrides };
     const params = new URLSearchParams();
     if (next.period !== "mtd") params.set("period", next.period);
     if (next.fleet !== "All") params.set("fleet", next.fleet);
+    if (next.agency !== "All") params.set("agency", next.agency);
     if (next.period === "custom" && next.start) params.set("start", next.start);
     if (next.period === "custom" && next.end) params.set("end", next.end);
     return params.toString() ? `?${params.toString()}` : "?";
@@ -467,10 +480,31 @@ function PeriodFleetSelector({
           ))}
         </div>
       </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Agency
+        </span>
+        <div className="flex gap-0.5 bg-canvas-sunken p-0.5 rounded-md">
+          {AGENCIES.map((a) => (
+            <a
+              key={a}
+              href={hrefFor({ agency: a })}
+              className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                agency === a
+                  ? "bg-canvas-raised text-ink shadow-card"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {a}
+            </a>
+          ))}
+        </div>
+      </div>
       {period === "custom" && (
         <form className="flex items-center gap-2" method="get">
           <input type="hidden" name="period" value="custom" />
           <input type="hidden" name="fleet" value={fleet} />
+          <input type="hidden" name="agency" value={agency} />
           <input
             type="date" name="start" defaultValue={start}
             className="text-xs border border-canvas-line rounded px-2 py-1"

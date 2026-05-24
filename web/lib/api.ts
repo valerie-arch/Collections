@@ -501,11 +501,14 @@ export type QbPreviewResponse = {
 
 export type DashboardPeriod = "mtd" | "lifetime" | "custom";
 
+export type DashboardAgency = "All" | "Hortta" | "TSAC";
+
 export type DashboardSnapshotQuery = {
   period?: DashboardPeriod;
   start?: string;        // YYYY-MM-DD
   end?: string;
   fleet?: ReportFleet;
+  agency?: DashboardAgency;
   as_of?: string;
 };
 
@@ -644,6 +647,7 @@ export type DashboardLookback = "3m" | "6m" | "12m" | "all";
 export type DashboardTrendsQuery = {
   lookback?: DashboardLookback;
   fleet?: ReportFleet;
+  agency?: DashboardAgency;
   as_of?: string;
 };
 

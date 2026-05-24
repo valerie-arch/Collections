@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 import { api, ReportFleet, ReportStatus, ReportView } from "@/lib/api";
 import { Tooltip } from "@/components/Tooltip";
 import { MemoButton } from "./memo-modal";
@@ -112,9 +111,6 @@ export function ReportControls({
 }) {
   const router = useRouter();
   const search = useSearchParams();
-  const [pending, start] = useTransition();
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [syncErr, setSyncErr] = useState<string | null>(null);
   // Canonical agencies — keep in sync with backend ALLOWED_AGENCIES.
   const agencyOptions = ["Hortta", "TSAC"];
 
@@ -125,28 +121,6 @@ export function ReportControls({
       else params.set(k, v);
     }
     router.push(`?${params.toString()}`);
-  };
-
-  const syncDrive = () => {
-    setSyncMsg(null);
-    setSyncErr(null);
-    start(async () => {
-      try {
-        const result = await api.driveSync();
-        const subsBit = result.subscriptions_error
-          ? ` Subscriptions: ${result.subscriptions_error}`
-          : ` Subscriptions: ${result.subscriptions_synced ?? 0} synced.`;
-        setSyncMsg(
-          `Synced ${result.downloaded.length} new, ${result.skipped.length} up-to-date.${subsBit}`,
-        );
-        if (result.subscriptions_error) {
-          setSyncErr(result.subscriptions_error);
-        }
-        router.refresh();
-      } catch (e) {
-        setSyncErr(e instanceof Error ? e.message : "sync failed");
-      }
-    });
   };
 
   const downloadParams = {
@@ -162,11 +136,6 @@ export function ReportControls({
   return (
     <div className="flex flex-col gap-3 items-end">
       <div className="flex flex-wrap items-center gap-3 justify-end">
-        {syncErr && (
-          <span className="text-xs text-clay-600 max-w-[20rem] truncate">{syncErr}</span>
-        )}
-        {syncMsg && <span className="text-xs text-moss-600">{syncMsg}</span>}
-
         <Segmented
           label="View"
           tip={
@@ -232,11 +201,6 @@ export function ReportControls({
             ))}
           </select>
         </div>
-
-        <button onClick={syncDrive} disabled={pending} className="btn-secondary">
-          <RefreshCw className={`w-3.5 h-3.5 ${pending ? "animate-spin" : ""}`} />
-          {pending ? "Syncing…" : "Sync Drive"}
-        </button>
 
         <MemoButton
           view={view}

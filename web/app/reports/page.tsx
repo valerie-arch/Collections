@@ -120,8 +120,9 @@ export default async function ReportsPage({
             {data?._note ?? "Failed to load report"}
           </div>
           <div className="text-xs text-ink-fade">
-            Click <span className="font-medium">Sync Drive</span> above to pull
-            invoice CSVs from Google Drive, or drop them into{" "}
+            Click <span className="font-medium">Sync Drive</span> on the{" "}
+            <a href="/" className="underline">Overview</a> page to pull invoice CSVs
+            from Google Drive, or drop them into{" "}
             <code className="font-mono text-xs">sample_inputs/zoho/invoices/</code>.
           </div>
         </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { SyncDriveButton } from "@/components/SyncDriveButton";
 import { api } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,8 @@ export default async function Overview() {
       <PageHeader
         eyebrow="Wahu · Collections"
         title="Portfolio overview"
-        description="Snapshot of the active book this month, the recovery list, and outliers that need attention."
+        description="Snapshot of the active book this month, the recovery list, and outliers that need attention. Sync Drive pulls only what changed since the last sync."
+        actions={<SyncDriveButton />}
       />
 
       <div className="grid gap-4 md:grid-cols-4 mb-10">

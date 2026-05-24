@@ -108,6 +108,18 @@ def _filter_by_fleet(invoices, fleet: str):
     ]
 
 
+def _filter_by_agency(invoices, agency: str):
+    """Restrict invoices to riders assigned to a specific 3rd-party agency
+    (Hortta / TSAC). Reuses Reports' resolver so the two pages agree."""
+    if agency == "All":
+        return invoices
+    from api.routers.reports import _resolve_agencies
+    agency_map = _resolve_agencies(invoices)
+    return [
+        i for i in invoices if agency_map.get(i.customer_id) == agency
+    ]
+
+
 def _serialize(obj):
     """asdict() that preserves date/Decimal as JSON-safe primitives."""
     if is_dataclass(obj):
@@ -125,6 +137,7 @@ def _serialize(obj):
 def dashboard_trends(
     lookback: str = Query("12m", pattern="^(3m|6m|12m|all)$"),
     fleet: str = Query("All", pattern="^(All|Wahu|TSA)$"),
+    agency: str = Query("All", pattern="^(All|Hortta|TSAC)$"),
     as_of: Optional[date] = None,
 ):
     """Four trend series (Collections Rate, MRR Movement, Charge-off,
@@ -141,6 +154,7 @@ def dashboard_trends(
             detail="No invoice data — sync from Drive first.",
         )
     invoices = _filter_by_fleet(invoices, fleet)
+    invoices = _filter_by_agency(invoices, agency)
     sub_map, sub_dates = _load_subs()
     ledger = _load_ledger()
 
@@ -174,6 +188,7 @@ def dashboard_snapshot(
     start: Optional[date] = None,
     end: Optional[date] = None,
     fleet: str = Query("All", pattern="^(All|Wahu|TSA)$"),
+    agency: str = Query("All", pattern="^(All|Hortta|TSAC)$"),
     as_of: Optional[date] = None,
 ):
     """Return all 10 KPIs grouped by layer."""
@@ -184,6 +199,7 @@ def dashboard_snapshot(
             detail="No invoice data — sync from Drive via /api/drives/sync first.",
         )
     invoices = _filter_by_fleet(invoices, fleet)
+    invoices = _filter_by_agency(invoices, agency)
     sub_map, sub_dates = _load_subs()
     ledger = _load_ledger()
 
