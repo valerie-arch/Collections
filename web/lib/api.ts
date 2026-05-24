@@ -634,14 +634,17 @@ export type DashboardSnapshot = {
 // ---------------------------------------------------------------------------
 
 export type InvoicesListQuery = {
+  view?: "mtd" | "lifetime" | "custom";
+  status?: "active" | "recovery" | "completed" | "all";
   fleet?: ReportFleet;
-  status?: "all" | "open" | "paid" | "overdue" | "partial" | "void" | "draft";
   start?: string;
   end?: string;
   q?: string;
   limit?: number;
   offset?: number;
 };
+
+export type InvoiceStream = "rider_daily" | "rider_larger" | "b2b_dealer";
 
 export type InvoiceListRow = {
   invoice_id: string;
@@ -653,13 +656,40 @@ export type InvoiceListRow = {
   total_ghs: number;
   balance_ghs: number;
   last_payment_date: string | null;
+  stream: InvoiceStream;
+};
+
+export type InvoiceStreamSummary = {
+  stream: InvoiceStream;
+  label: string;
+  count: number;
+  total_ghs: number;
+};
+
+export type InvoiceAgingBucket = {
+  label: string;
+  rider_count: number;
+  open_invoice_count: number;
+  ghs: number;
+  pct_of_ghs: number;
 };
 
 export type InvoicesListResponse = {
-  total: number;
-  open_count: number;
-  total_invoiced_ghs: number;
-  total_outstanding_ghs: number;
+  as_of: string;
+  window: { period: string; start: string; end: string; label: string };
+  filters: { view: string; status: string; fleet: ReportFleet };
+  summary: {
+    total_invoices: number;
+    open_count: number;
+    total_invoiced_ghs: number;
+    total_outstanding_ghs: number;
+    by_stream: InvoiceStreamSummary[];
+  };
+  aging: {
+    as_of: string;
+    total_outstanding_ghs: number;
+    buckets: InvoiceAgingBucket[];
+  };
   limit: number;
   offset: number;
   rows: InvoiceListRow[];
