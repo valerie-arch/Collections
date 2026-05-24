@@ -11,7 +11,6 @@ Spec acceptance:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -87,49 +86,55 @@ def test_load_rejects_unknown_enum_value(tmp_path):
 # Acceptance #1 — flipping include_bolt_weekly changes collection_rate_pct
 # ---------------------------------------------------------------------------
 
-@dataclass
-class _FakeFleetPayout:
-    by_agency_subtotals: pd.DataFrame
+def _fixture_outstanding_and_matched():
+    """One agency (TSAC), opening 1000. After Step 2: applied_this_run = 700
+    (200 from MoMo receipts + 500 from a Bolt-deduction synthesized receipt
+    in the same run — Bolt is now a receipt, not a side-channel).
 
-
-def _fixture_outstanding_and_bolt():
-    """One agency (TSAC), opening 1000, Step 2 applied 200, Bolt deducted 500.
-    With Bolt:    rate = (200 + 500) / 1000 = 70.0%
-    Without Bolt: rate = 200 / 1000 = 20.0%"""
+    With Bolt:    rate = 700 / 1000 = 70.0%
+    Without Bolt: rate = (700 - 500) / 1000 = 20.0% (kill-switch subtracts
+                  the bolt_deduction rows back out)"""
     outstanding = pd.DataFrame([
         dict(rider_id="R1", rider_name="X", fleet="Wahu", agency="TSAC",
-             opening_outstanding=1000.0, applied_this_run=200.0,
+             opening_outstanding=1000.0, applied_this_run=700.0,
              prior_credit=0.0, prior_credit_consumed=0.0, new_credit_this_run=0.0,
-             closing_outstanding=800.0, closing_credit=0.0, open_invoice_count=1),
+             closing_outstanding=300.0, closing_credit=0.0, open_invoice_count=1),
     ])
-    bolt_fleets = {
-        "Wahu": _FakeFleetPayout(by_agency_subtotals=pd.DataFrame([
-            dict(agency="TSAC", rider_count=1, bolt_earnings=600.0,
-                 deduction=500.0, net_payout_to_rider=100.0),
-        ])),
-        "TSA": _FakeFleetPayout(by_agency_subtotals=pd.DataFrame()),
-    }
-    return outstanding, bolt_fleets
+    matched = pd.DataFrame([
+        # MoMo receipt — 200 applied
+        dict(txn_id="T1", channel="mtn", date=date(2026, 5, 14),
+             receipt_amount=200.0, rider_id="R1", rider_name="X",
+             match_tier="PHONE", match_score=None,
+             invoice_id="i1", applied_amount=200.0,
+             is_residual_credit=False, source_file="x.csv"),
+        # Synthesized Bolt deduction — 500 applied
+        dict(txn_id="BOLT_R1_20260517", channel="bolt_deduction",
+             date=date(2026, 5, 17),
+             receipt_amount=500.0, rider_id="R1", rider_name="X",
+             match_tier="BOLT_DIRECT", match_score=None,
+             invoice_id="i2", applied_amount=500.0,
+             is_residual_credit=False, source_file="bolt.csv"),
+    ])
+    return outstanding, matched
 
 
 def test_acceptance_1_include_bolt_weekly_toggle_changes_rate():
-    outstanding, bolt_fleets = _fixture_outstanding_and_bolt()
+    outstanding, matched = _fixture_outstanding_and_matched()
 
     with_bolt = agency_performance.compute(
         outstanding_df=outstanding,
-        matched_payments=pd.DataFrame(),
-        total_receipts=1, suspense_count=0,
-        bolt_fleets=bolt_fleets, include_bolt_weekly=True,
+        matched_payments=matched,
+        total_receipts=2, suspense_count=0,
+        include_bolt_weekly=True,
     )
     without_bolt = agency_performance.compute(
         outstanding_df=outstanding,
-        matched_payments=pd.DataFrame(),
-        total_receipts=1, suspense_count=0,
-        bolt_fleets=bolt_fleets, include_bolt_weekly=False,
+        matched_payments=matched,
+        total_receipts=2, suspense_count=0,
+        include_bolt_weekly=False,
     )
     assert float(with_bolt.iloc[0]["collection_rate_pct"]) == 70.0
     assert float(without_bolt.iloc[0]["collection_rate_pct"]) == 20.0
-    # And the toggle moved the needle.
     assert with_bolt.iloc[0]["collection_rate_pct"] != without_bolt.iloc[0]["collection_rate_pct"]
 
 

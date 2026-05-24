@@ -10,6 +10,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!web/lib/
 lib64/
 parts/
 sdist/
@@ -65,4 +66,7 @@ htmlcov/
 ~$*
 .env
 *.xlsx
+# Schema templates with no real customer data — keep them in source control
+# so Finance has a starting point to copy into a Google Sheet.
+!collections_v3/io_/templates/*.xlsx
 venv/

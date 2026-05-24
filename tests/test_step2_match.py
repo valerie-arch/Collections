@@ -314,6 +314,74 @@ def test_orchestrator_overpayment_creates_rider_credit_row():
 
 
 # ---------------------------------------------------------------------------
+# Bolt direct-allocation (2B) — channel="bolt_deduction" carries
+# direct_rider_id from Step 1 and bypasses the fuzzy matcher.
+# ---------------------------------------------------------------------------
+
+_BOLT_COLUMNS = [
+    "txn_id", "channel", "date", "amount", "sender_name",
+    "sender_phone_canonical", "sender_phone_raw",
+    "sender_account", "reference", "narration", "source_file",
+    "direct_rider_id",
+]
+
+
+def _bolt_receipt_row(**kw) -> dict:
+    base = dict(
+        txn_id="BOLT_CUS-1_20260517", channel="bolt_deduction",
+        date=date(2026, 5, 17), amount=420.0,
+        sender_name="Felix Adom", sender_phone_canonical="",
+        sender_phone_raw="", sender_account="", reference="",
+        narration="Bolt approved deduction for overdue invoice",
+        source_file="Workings.csv", direct_rider_id="CUS-1",
+    )
+    base.update(kw)
+    return base
+
+
+def test_bolt_direct_allocation_bypasses_fuzzy_matcher():
+    """A bolt_deduction receipt carrying direct_rider_id allocates straight
+    to FIFO with tier BOLT_DIRECT, even if the sender_name / phone wouldn't
+    fuzzy-match anything in the rider index."""
+    receipts = pd.DataFrame([_bolt_receipt_row(
+        amount=420.0,
+        sender_name="totally unparseable garbage",  # would never tier-match
+        sender_phone_canonical="",                  # no phone hit possible
+        direct_rider_id="CUS-1",                   # but rider is unambiguous
+    )], columns=_BOLT_COLUMNS)
+    res = step2_match.run(
+        _ctx(Fleet.All, Agency.All),
+        receipts=receipts, invoices_all=_invoices(),
+        riders_in_scope={"CUS-1", "CUS-2", "CUS-3", "CUS-4"},
+        rider_index=_index(),
+    )
+    # CUS-1 (Felix) has invoices i1=400, i2=400, i3=200; 420 covers i1 + 20
+    # of i2.
+    assert not res.matched_payments.empty
+    tiers = set(res.matched_payments["match_tier"].tolist())
+    assert tiers == {"BOLT_DIRECT"}
+    assert float(res.matched_payments["applied_amount"].sum()) == 420.0
+    assert res.suspense.empty
+
+
+def test_bolt_direct_allocation_respects_scope_gate():
+    """If --fleet TSA filters CUS-1 (Wahu) out, the Bolt receipt should land
+    in out_of_scope just like any other receipt."""
+    receipts = pd.DataFrame(
+        [_bolt_receipt_row(direct_rider_id="CUS-1")], columns=_BOLT_COLUMNS,
+    )
+    res = step2_match.run(
+        _ctx(Fleet.TSA, Agency.TSAC),
+        receipts=receipts, invoices_all=_invoices(),
+        riders_in_scope={"CUS-2"},  # CUS-1 not in scope
+        rider_index=_index(),
+    )
+    assert res.matched_payments.empty
+    assert len(res.out_of_scope) == 1
+    assert res.out_of_scope.iloc[0]["match_tier"] == "BOLT_DIRECT"
+
+
+# ---------------------------------------------------------------------------
 # Already-booked check (2A)
 # ---------------------------------------------------------------------------
 

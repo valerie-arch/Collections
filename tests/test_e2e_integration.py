@@ -60,8 +60,6 @@ def fixture_world(tmp_path, monkeypatch):
                         lambda **kw: fx.tsa_fleet)
     monkeypatch.setattr(step1_load, "load_zones",
                         lambda **kw: fx.zones)
-    monkeypatch.setattr(step1_load, "load_zoho_payments",
-                        lambda **kw: pd.DataFrame())
     monkeypatch.setattr(step1_load, "load_bolt_earnings",
                         lambda **kw: fx.bolt.copy())
     monkeypatch.setattr(

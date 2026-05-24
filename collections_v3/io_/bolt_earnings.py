@@ -243,6 +243,77 @@ def load_bolt_for_week(
     return _normalize_bolt_sheet(rf, filename_date)
 
 
+# ---------------------------------------------------------------------------
+# Synthesize Bolt deductions as payment receipts
+# ---------------------------------------------------------------------------
+
+# Mirrors collections_v3/io_/receipts.py::ALL_COLUMNS plus an extra column
+# `direct_rider_id` that signals "bypass fuzzy matching, allocate directly
+# to this rider". Step 2 consumes that signal. The name deliberately has no
+# leading underscore — pandas.itertuples renames underscore-prefixed columns
+# to positional placeholders, which breaks getattr lookup.
+_RECEIPT_COLUMNS_WITH_DIRECT = [
+    "txn_id", "channel", "date", "amount", "sender_name",
+    "sender_phone_canonical", "sender_phone_raw", "reference",
+    "narration", "source_file", "direct_rider_id",
+]
+
+
+def synthesize_bolt_deduction_receipts(bolt_with_rider_ids: pd.DataFrame) -> pd.DataFrame:
+    """Turn rows with `approved_deduction > 0` into synthetic payment receipts.
+
+    The Bolt weekly Payout Workings sheet records, per rider per week, the
+    GHS amount Bolt has held back from the rider's payout and remitted to
+    Wahu as repayment of overdue invoices ("Approved Deduction For Overdue
+    Invoice"). That IS a settled collection event and must be treated as a
+    payment alongside MTN/Telecel/Bank receipts.
+
+    The synthesized rows carry `direct_rider_id` (the rider_id Step 1 has
+    already attached by matching rider_name to the in-scope invoices). Step 2
+    uses that signal to route the receipt straight to FIFO via tier
+    BOLT_DIRECT, skipping Tiers 1/2/3 — no fuzzy match needed since the
+    rider is unambiguous on the sheet.
+
+    `txn_id` matches the format used historically by qb_exports.
+    _bolt_to_payment_rows (`BOLT_{rider_id}_{YYYYMMDD}`) so QB import remains
+    idempotent across the migration to receipt-based Bolt accounting.
+    """
+    if bolt_with_rider_ids is None or bolt_with_rider_ids.empty:
+        return pd.DataFrame(columns=_RECEIPT_COLUMNS_WITH_DIRECT)
+    if "rider_id" not in bolt_with_rider_ids.columns:
+        # Step 1 should have attached rider_id; if it didn't, there's nothing
+        # we can direct-allocate against. Drop silently — the rider_index
+        # path will still learn momo phones from these rows.
+        return pd.DataFrame(columns=_RECEIPT_COLUMNS_WITH_DIRECT)
+
+    rows: list[dict] = []
+    for r in bolt_with_rider_ids.itertuples(index=False):
+        amount = float(getattr(r, "approved_deduction", 0.0) or 0.0)
+        if amount <= 0:
+            continue
+        rider_id = str(getattr(r, "rider_id", "") or "").strip()
+        if not rider_id:
+            continue
+        week_end = getattr(r, "week_end", None)
+        if week_end is None:
+            continue
+        txn_id = f"BOLT_{rider_id}_{week_end:%Y%m%d}"
+        rows.append({
+            "txn_id": txn_id,
+            "channel": "bolt_deduction",
+            "date": week_end,
+            "amount": round(amount, 2),
+            "sender_name": str(getattr(r, "rider_name", "") or "").strip(),
+            "sender_phone_canonical": str(getattr(r, "momo_account", "") or "").strip(),
+            "sender_phone_raw": str(getattr(r, "momo_account", "") or "").strip(),
+            "reference": txn_id,
+            "narration": "Bolt approved deduction for overdue invoice",
+            "source_file": str(getattr(r, "source_file", "") or ""),
+            "direct_rider_id": rider_id,
+        })
+    return pd.DataFrame(rows, columns=_RECEIPT_COLUMNS_WITH_DIRECT)
+
+
 def load_bolt_earnings(
     *, ctx: Optional[RunContext] = None, client: Optional[DriveClient] = None,
 ) -> pd.DataFrame:

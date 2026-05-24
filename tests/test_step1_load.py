@@ -163,7 +163,6 @@ def test_receipts_not_filtered_by_scope(monkeypatch):
         sheet_name="TSA", rider_count=0, riders=set(), raw_assigned=[],
     ))
     monkeypatch.setattr(step1_load, "load_zones", lambda **kw: ZonesData())
-    monkeypatch.setattr(step1_load, "load_zoho_payments", lambda **kw: pd.DataFrame())
     monkeypatch.setattr(step1_load, "load_bolt_earnings", lambda **kw: pd.DataFrame())
     monkeypatch.setattr(step1_load, "_tag_invoices", lambda inv, t, z: (inv, []))
     monkeypatch.setattr(step1_load, "get_drive_client", lambda: object())

@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     # zone tables: West Zone -> Hortta, East Zone -> TSAC. All TSA fleet
     # riders go to TSAC regardless of zone.
     ASSIGNMENT_ZONES_SHEET_ID: str = "1vyhQBVwGgQDCM7A-A_46zMil9cNDUCKK-lFkojSA3Nc"
+    # Write-off ledger (Finance-maintained Google Sheet with WriteOffs and
+    # Recoveries tabs). Empty string falls back to the local template at
+    # sample_inputs/write_offs/write_off_ledger_template.xlsx for dev/tests.
+    WRITE_OFFS_SHEET_ID: str = ""
     # Only reconcile payments dated on or after this — Zoho already has earlier ones.
     PAYMENTS_CUTOFF_DATE: str = "2026-05-14"
     # Either a path to a JSON file (local dev) OR raw JSON content (Railway/prod).

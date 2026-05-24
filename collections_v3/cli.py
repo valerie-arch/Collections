@@ -162,7 +162,7 @@ def cmd_run(
         typer.echo(
             f"step1 done: invoices_in_scope={len(s1.invoices_in_scope)} "
             f"riders={len(s1.riders_in_scope)} receipts={len(s1.receipts)} "
-            f"zoho_payments={len(s1.zoho_payments)} bolt_rows={len(s1.bolt_earnings)}"
+            f"bolt_rows={len(s1.bolt_earnings)}"
         )
     except Exception as e:
         logger.exception("step1 failed: %s", e)
@@ -298,8 +298,7 @@ def cmd_run(
             {"name": "Zoho invoices folder", "drive_id": "(folder)", "rows": len(s1.invoices_all)},
             {"name": f"TSA roster tab '{s1.sources_used.get('tsa_roster_tab', '')}'",
              "drive_id": "(sheet)", "rows": 0},
-            {"name": "Receipts (MoMo/bank)", "drive_id": "(folder)", "rows": len(s1.receipts)},
-            {"name": "Zoho payments folder", "drive_id": "(folder)", "rows": len(s1.zoho_payments)},
+            {"name": "Receipts (MTN / Telecel / Bank)", "drive_id": "(folder)", "rows": len(s1.receipts)},
             {"name": "Bolt earnings", "drive_id": "(folder)", "rows": len(s1.bolt_earnings)},
         ]
         s6 = step6_reports.compute(

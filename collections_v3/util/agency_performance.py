@@ -49,10 +49,12 @@ def compute(
 ) -> pd.DataFrame:
     """Per-agency performance snapshot.
 
-    Q3 (governance.agency_scoring.include_bolt_weekly): when True (default),
-    Bolt weekly deductions ARE added to the numerator of collection_rate_pct
-    on a per-agency basis. When False, only receipt-based applications
-    (Step 2) count.
+    Q3 (governance.agency_scoring.include_bolt_weekly): Bolt deductions are
+    now synthesized as receipts in Step 1 and flow through matched_payments
+    and Step 4's `applied_this_run`, so they're already in `applied_ghs`.
+    The flag is preserved as a kill-switch: when False, Bolt-channel rows
+    are subtracted out so collection_rate_pct reflects MoMo/bank receipts
+    only. `bolt_fleets` is no longer the source of the bolt total.
     """
     suspense_pct = (
         round(100 * suspense_count / total_receipts, 1)
@@ -62,26 +64,32 @@ def compute(
     if outstanding_df is None or outstanding_df.empty:
         return pd.DataFrame(columns=COLUMNS)
 
-    # Per-agency opening + applied.
+    # Per-agency opening + applied. `applied_this_run` already includes
+    # Bolt deductions (synthesized as channel="bolt_deduction" receipts).
     per_agency = outstanding_df.groupby("agency", as_index=False).agg(
         rider_count=("rider_id", "count"),
         opening_outstanding_ghs=("opening_outstanding", "sum"),
         applied_ghs=("applied_this_run", "sum"),
     )
 
-    # Q3 — fold Bolt deductions into the per-agency applied total. Bolt
-    # deductions live in step5_bolt_payout.Step5Result.fleets[*].by_agency_subtotals.
+    # Kill-switch: when include_bolt_weekly=False, back out the Bolt-channel
+    # contribution per agency from `applied_ghs`.
     bolt_applied_by_agency: dict[str, float] = {}
-    if include_bolt_weekly and bolt_fleets:
-        for fp in bolt_fleets.values():
-            sub = getattr(fp, "by_agency_subtotals", None)
-            if sub is None or sub.empty:
-                continue
-            for r in sub.itertuples(index=False):
-                ag = str(getattr(r, "agency", "") or "")
+    if not include_bolt_weekly and matched_payments is not None and not matched_payments.empty:
+        bolt_only = matched_payments[
+            (matched_payments["channel"].astype(str) == "bolt_deduction")
+            & (~matched_payments["is_residual_credit"].astype(bool))
+        ]
+        if not bolt_only.empty:
+            rider_to_agency = dict(zip(
+                outstanding_df["rider_id"].astype(str),
+                outstanding_df["agency"].astype(str),
+            ))
+            for r in bolt_only.itertuples(index=False):
+                ag = rider_to_agency.get(str(getattr(r, "rider_id", "")), "")
                 bolt_applied_by_agency[ag] = (
                     bolt_applied_by_agency.get(ag, 0.0)
-                    + float(getattr(r, "deduction", 0.0) or 0.0)
+                    + float(getattr(r, "applied_amount", 0.0) or 0.0)
                 )
 
     # Avg days-to-match per agency.
@@ -106,7 +114,9 @@ def compute(
     rows = []
     for r in per_agency.itertuples(index=False):
         opening = float(r.opening_outstanding_ghs)
-        applied = float(r.applied_ghs) + bolt_applied_by_agency.get(str(r.agency), 0.0)
+        # Bolt is already in applied_ghs; subtract it back out when the
+        # kill-switch is off so the rate reflects non-Bolt receipts only.
+        applied = float(r.applied_ghs) - bolt_applied_by_agency.get(str(r.agency), 0.0)
         rate = round(100 * applied / opening, 1) if opening > 0 else 0.0
         rows.append({
             "agency": r.agency,

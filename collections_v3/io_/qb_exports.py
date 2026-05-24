@@ -106,59 +106,42 @@ def _matched_to_payment_rows(matched_payments: pd.DataFrame) -> list[dict]:
     rows = []
     applied = matched_payments[~matched_payments["is_residual_credit"].astype(bool)]
     for r in applied.itertuples(index=False):
+        channel = str(getattr(r, "channel", "") or "")
+        # Bolt deductions are synthesized as receipts in Step 1 and flow
+        # through matched_payments. Tag them as Bolt_Weekly for QB so the
+        # IIF deposit account routes to Bolt Clearing.
+        payment_source = "Bolt_Weekly" if channel == "bolt_deduction" else "Receipt"
         rows.append({
             "txn_id": str(getattr(r, "txn_id", "") or ""),
             "date": getattr(r, "date", None),
             "rider_id": str(getattr(r, "rider_id", "") or ""),
             "rider_name": str(getattr(r, "rider_name", "") or ""),
-            "channel": str(getattr(r, "channel", "") or ""),
+            "channel": channel,
             "amount": float(getattr(r, "applied_amount", 0.0) or 0.0),
             "invoice_id_applied": str(getattr(r, "invoice_id", "") or ""),
-            "payment_source": "Receipt",
+            "payment_source": payment_source,
         })
     return rows
 
 
-def _bolt_to_payment_rows(bolt_fleets) -> list[dict]:
-    rows = []
-    for fp in (bolt_fleets or {}).values():
-        if fp.payouts is None or fp.payouts.empty:
-            continue
-        for r in fp.payouts.itertuples(index=False):
-            deduction = float(getattr(r, "deduction", 0.0) or 0.0)
-            if deduction <= 0:
-                continue
-            # Each Bolt deduction posts as a single payment per rider; the
-            # applications_detail string carries the per-invoice split.
-            rows.append({
-                "txn_id": f"BOLT_{getattr(r, 'rider_id', '')}_"
-                          f"{getattr(r, 'week_end', '')}",
-                "date": getattr(r, "week_end", None),
-                "rider_id": str(getattr(r, "rider_id", "") or ""),
-                "rider_name": str(getattr(r, "rider_name", "") or ""),
-                "channel": "Bolt",
-                "amount": deduction,
-                "invoice_id_applied": str(getattr(r, "invoices_settled", "") or ""),
-                "payment_source": "Bolt_Weekly",
-            })
-    return rows
-
-
-def payments_to_csv(matched_payments: pd.DataFrame, bolt_fleets) -> bytes:
-    rows = _matched_to_payment_rows(matched_payments) + _bolt_to_payment_rows(bolt_fleets)
+def payments_to_csv(matched_payments: pd.DataFrame, bolt_fleets=None) -> bytes:
+    # `bolt_fleets` kept in the signature for callers that still pass it; the
+    # data now flows through matched_payments (Step 1 synthesizes Bolt
+    # deductions as receipts) so we no longer read it here.
+    rows = _matched_to_payment_rows(matched_payments)
     df = pd.DataFrame(rows, columns=PAYMENT_CSV_COLUMNS)
     out = io.StringIO()
     df.to_csv(out, index=False, lineterminator="\n")
     return out.getvalue().encode("utf-8")
 
 
-def payments_to_iif(matched_payments: pd.DataFrame, bolt_fleets) -> bytes:
+def payments_to_iif(matched_payments: pd.DataFrame, bolt_fleets=None) -> bytes:
     lines: list[str] = [
         "!TRNS\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO",
         "!SPL\tTRNSTYPE\tDATE\tACCNT\tNAME\tAMOUNT\tDOCNUM\tMEMO",
         "!ENDTRNS",
     ]
-    for row in _matched_to_payment_rows(matched_payments) + _bolt_to_payment_rows(bolt_fleets):
+    for row in _matched_to_payment_rows(matched_payments):
         d = _qb_date(row["date"])
         deposit_account = "Bank" if row["payment_source"] != "Bolt_Weekly" else "Bolt Clearing"
         amount = float(row["amount"])

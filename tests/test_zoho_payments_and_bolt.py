@@ -13,7 +13,7 @@ from api.integrations.google_drive import DriveFile
 from collections_v3.io_ import bolt_earnings, zoho_payments
 from collections_v3.io_.bolt_earnings import (
     _normalize_bolt_sheet, _parse_filename_date, _payout_monday_for,
-    _week_window_from_filename,
+    _week_window_from_filename, synthesize_bolt_deduction_receipts,
 )
 from collections_v3.io_.drive_resolver import ResolvedFile
 from collections_v3.io_.zoho_payments import _normalize_one
@@ -187,6 +187,54 @@ def test_load_bolt_latest_when_no_ctx(monkeypatch):
     df = bolt_earnings.load_bolt_earnings(client=client)
     # Latest sheet: 18/05/2026 -> Mon May 11 .. Sun May 17
     assert (df["week_start"].iloc[0], df["week_end"].iloc[0]) == (date(2026, 5, 11), date(2026, 5, 17))
+
+
+# ---------------------------------------------------------------------------
+# Bolt: synthesize approved-deduction rows as payment receipts
+# ---------------------------------------------------------------------------
+
+def _bolt_with_rider_ids() -> pd.DataFrame:
+    return pd.DataFrame([
+        dict(rider_name="Alpha Rider", week_start=date(2026, 5, 11),
+             week_end=date(2026, 5, 17), approved_deduction=420.0,
+             momo_account="0244000001", source_file="Workings 18-05.csv",
+             rider_id="R1"),
+        # No deduction this week -> skipped.
+        dict(rider_name="Beta Rider", week_start=date(2026, 5, 11),
+             week_end=date(2026, 5, 17), approved_deduction=0.0,
+             momo_account="0244000002", source_file="Workings 18-05.csv",
+             rider_id="R2"),
+        # Rider with no rider_id (didn't match an invoice) -> skipped.
+        dict(rider_name="Ghost Rider", week_start=date(2026, 5, 11),
+             week_end=date(2026, 5, 17), approved_deduction=200.0,
+             momo_account="0244000003", source_file="Workings 18-05.csv",
+             rider_id=""),
+    ])
+
+
+def test_synthesize_emits_only_positive_deductions_with_rider_id():
+    out = synthesize_bolt_deduction_receipts(_bolt_with_rider_ids())
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert row["channel"] == "bolt_deduction"
+    assert row["amount"] == 420.0
+    assert row["direct_rider_id"] == "R1"
+    # Idempotent txn_id used by QB exports.
+    assert row["txn_id"] == "BOLT_R1_20260517"
+    assert row["date"] == date(2026, 5, 17)
+    assert row["sender_name"] == "Alpha Rider"
+
+
+def test_synthesize_handles_empty_or_missing_rider_id_column():
+    assert synthesize_bolt_deduction_receipts(pd.DataFrame()).empty
+    # Bolt rows without rider_id column at all -> returns empty (no direct
+    # allocation possible).
+    no_rid = pd.DataFrame([dict(
+        rider_name="X", week_start=date(2026, 5, 11),
+        week_end=date(2026, 5, 17), approved_deduction=100.0,
+        momo_account="", source_file="x.csv",
+    )])
+    assert synthesize_bolt_deduction_receipts(no_rid).empty
 
 
 # ---------------------------------------------------------------------------

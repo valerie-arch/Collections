@@ -249,22 +249,26 @@ def test_qb_invoices_iif_has_headers_and_one_pair_per_invoice():
     assert "\t-300.00\t" in spl[0]
 
 
-def test_qb_payments_iif_combines_receipts_and_bolt():
+def test_qb_payments_iif_includes_bolt_deduction_receipts():
+    """Bolt deductions flow through matched_payments (synthesized in Step 1
+    with channel="bolt_deduction"), not via the legacy bolt_fleets side-
+    channel. The IIF writer tags them as Bolt_Weekly and routes the deposit
+    to Bolt Clearing."""
     matched = _matched_payments_df()
-    # Synthesise a tiny Step5 bolt_fleets shape.
-    class FakeFP:
-        def __init__(self, df): self.payouts = df
-    fleet_payouts = {
-        "Wahu": FakeFP(pd.DataFrame([dict(
-            rider_id="R1", rider_name="Felix Adom",
-            week_start=date(2026, 5, 11), week_end=date(2026, 5, 17),
-            deduction=420.0, invoices_settled="i1",
-        )])),
-        "TSA": FakeFP(pd.DataFrame()),
-    }
-    iif = qb_exports.payments_to_iif(matched, fleet_payouts).decode("utf-8")
+    bolt_row = pd.DataFrame([dict(
+        txn_id="BOLT_R1_20260517", channel="bolt_deduction",
+        date=date(2026, 5, 17),
+        receipt_amount=420.0, rider_id="R1", rider_name="Felix Adom",
+        match_tier="BOLT_DIRECT", match_score=None,
+        invoice_id="i1", applied_amount=420.0,
+        is_residual_credit=False, source_file="Bolt Workings 17-05-2026.csv",
+    )])
+    matched_with_bolt = pd.concat([matched, bolt_row], ignore_index=True)
+    iif = qb_exports.payments_to_iif(matched_with_bolt).decode("utf-8")
     lines = iif.strip().split("\n")
     trns = [l for l in lines if l.startswith("TRNS\t")]
-    # 4 from matched_payments (excluding the residual_credit row) + 1 Bolt.
+    # 4 from the receipts fixture (excluding the residual_credit row) + 1 Bolt.
     assert len(trns) == 5
-    assert any("Bolt_Weekly" in l for l in trns)
+    bolt_trns = [l for l in trns if "Bolt_Weekly" in l]
+    assert len(bolt_trns) == 1
+    assert "Bolt Clearing" in bolt_trns[0]

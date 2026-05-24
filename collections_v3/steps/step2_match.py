@@ -2,10 +2,13 @@
 
 Pipeline:
   2A  already_booked  : drop receipts already recorded in Zoho
-  2B  three tiers     : PHONE / ACCOUNT > NAME (>= 85) > REF
-  2C  FIFO apply      : split matched amount across rider's oldest open
+  2B  bolt_direct     : channel=="bolt_deduction" rows carry _direct_rider_id
+                        from Step 1; skip fuzzy match, route straight to FIFO
+                        as tier BOLT_DIRECT
+  2C  three tiers     : PHONE / ACCOUNT > NAME (>= 85) > REF
+  2D  FIFO apply      : split matched amount across rider's oldest open
                         invoices, residual -> rider_credit
-  2D  suspense        : receipts with no tier hit go to Suspense ledger
+  2E  suspense        : receipts with no tier hit go to Suspense ledger
 
 Output buckets:
   * matched_payments      — receipts resolved to an in-scope rider
@@ -142,8 +145,15 @@ def run(
             })
             continue
 
-        # 2B — tier 1/2/3
-        rider_id, tier, score = _tier_match(receipt, rider_index)
+        # 2B — Bolt direct-allocation. Synthesized bolt_deduction rows carry
+        # the rider_id from Step 1; allocate straight to FIFO and skip the
+        # fuzzy matcher and Rule-2 soft-match.
+        direct_rid = str(getattr(receipt, "direct_rider_id", "") or "").strip()
+        if direct_rid:
+            rider_id, tier, score = direct_rid, "BOLT_DIRECT", None
+        else:
+            # 2C — tier 1/2/3
+            rider_id, tier, score = _tier_match(receipt, rider_index)
 
         if not rider_id:
             suspense_rows.append({
