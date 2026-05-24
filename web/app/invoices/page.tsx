@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { Tooltip } from "@/components/Tooltip";
 import {
   api, InvoicesListQuery, InvoicesListResponse, ReportFleet,
 } from "@/lib/api";
@@ -139,12 +140,11 @@ export default async function InvoicesPage({
                   <th>Status</th>
                   <th className="!text-right">Total</th>
                   <th className="!text-right">Balance</th>
-                  <th>Last paid</th>
                 </tr>
               </thead>
               <tbody>
                 {data.rows.length === 0 && (
-                  <tr><td colSpan={9} className="text-center text-ink-fade py-6">No invoices match the filters.</td></tr>
+                  <tr><td colSpan={8} className="text-center text-ink-fade py-6">No invoices match the filters.</td></tr>
                 )}
                 {data.rows.map((r) => (
                   <tr key={r.invoice_id}>
@@ -161,7 +161,6 @@ export default async function InvoicesPage({
                     <td className={`font-mono text-sm text-right ${r.balance_ghs > 0 ? "text-clay-600" : "text-ink-fade"}`}>
                       {fmtGhs(r.balance_ghs)}
                     </td>
-                    <td className="font-mono text-xs">{r.last_payment_date ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -208,20 +207,33 @@ function FilterChips({
 
   return (
     <div className="flex flex-wrap items-center gap-3 justify-end">
-      <ChipGroup label="View" options={VIEWS.map((v) => ({ value: v, label: VIEW_LABEL[v] }))}
-                 current={view} hrefFor={(v) => hrefFor({ view: v as View })} />
-      <ChipGroup label="Status" options={STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
-                 current={status} hrefFor={(s) => hrefFor({ status: s as Status })} />
-      <ChipGroup label="Fleet" options={FLEETS.map((f) => ({ value: f, label: f }))}
-                 current={fleet} hrefFor={(f) => hrefFor({ fleet: f as ReportFleet })} />
+      <ChipGroup
+        label="View"
+        tip={<><strong>View</strong> picks the time window for counts and aging. MTD = first of this month through today. Lifetime = all invoices ever issued. Custom = pick a date range.</>}
+        options={VIEWS.map((v) => ({ value: v, label: VIEW_LABEL[v] }))}
+        current={view} hrefFor={(v) => hrefFor({ view: v as View })}
+      />
+      <ChipGroup
+        label="Status"
+        tip={<><strong>Status</strong> filters by subscription state. Active = currently subscribed. Recovery = churned with outstanding balance. Completed = fully paid out. All = everyone.</>}
+        options={STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+        current={status} hrefFor={(s) => hrefFor({ status: s as Status })}
+      />
+      <ChipGroup
+        label="Fleet"
+        tip={<><strong>Fleet</strong> filters by bike ownership. Wahu = standard riders on Wahu-owned bikes. TSA = riders flagged TSA on the subscription.</>}
+        options={FLEETS.map((f) => ({ value: f, label: f }))}
+        current={fleet} hrefFor={(f) => hrefFor({ fleet: f as ReportFleet })}
+      />
     </div>
   );
 }
 
 function ChipGroup({
-  label, options, current, hrefFor,
+  label, tip, options, current, hrefFor,
 }: {
   label: string;
+  tip?: React.ReactNode;
   options: { value: string; label: string }[];
   current: string;
   hrefFor: (v: string) => string;
@@ -229,6 +241,7 @@ function ChipGroup({
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">{label}</span>
+      {tip && <Tooltip content={tip} side="bottom" align="start" />}
       <div className="flex gap-0.5 bg-canvas-sunken p-0.5 rounded-md ml-1">
         {options.map((o) => (
           <a
@@ -253,7 +266,6 @@ function ChipGroup({
 // ---------------------------------------------------------------------------
 
 function CountCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
-  const max = Math.max(1, ...summary.by_stream.map((s) => s.count));
   return (
     <section className="surface p-5">
       <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
@@ -263,23 +275,11 @@ function CountCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
         {summary.total_invoices.toLocaleString()}
       </div>
       <div className="text-xs text-ink-fade mt-1">{summary.open_count.toLocaleString()} still open</div>
-      <div className="mt-4 space-y-2">
-        {summary.by_stream.map((s) => (
-          <div key={s.stream} className="grid grid-cols-[8rem_1fr_auto] items-center gap-2 text-[11px]">
-            <span className="text-ink-muted">{s.label}</span>
-            <div className="h-1.5 bg-canvas-sunken rounded">
-              <div className="h-full bg-accent-500 rounded" style={{ width: `${(s.count / max) * 100}%` }} />
-            </div>
-            <span className="font-mono text-ink">{s.count.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
 
 function ValueCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
-  const max = Math.max(1, ...summary.by_stream.map((s) => s.total_ghs));
   return (
     <section className="surface p-5">
       <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
@@ -289,17 +289,6 @@ function ValueCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
         {fmtGhs0(summary.total_invoiced_ghs)}
       </div>
       <div className="text-xs text-clay-600 mt-1">{fmtGhs0(summary.total_outstanding_ghs)} outstanding</div>
-      <div className="mt-4 space-y-2">
-        {summary.by_stream.map((s) => (
-          <div key={s.stream} className="grid grid-cols-[8rem_1fr_auto] items-center gap-2 text-[11px]">
-            <span className="text-ink-muted">{s.label}</span>
-            <div className="h-1.5 bg-canvas-sunken rounded">
-              <div className="h-full bg-moss-500 rounded" style={{ width: `${(s.total_ghs / max) * 100}%` }} />
-            </div>
-            <span className="font-mono text-ink whitespace-nowrap">{fmtGhs0(s.total_ghs)}</span>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
