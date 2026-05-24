@@ -219,11 +219,23 @@ def _walk_payment_files(
     'Payments/MTN/file.csv' get a prefix 'MTN_' applied to their saved
     local filename — preserves channel attribution AND avoids collisions
     when two channels have files with the same name.
+
+    Defensive: if list_folder fails on a subfolder (service-account perms
+    glitch, network blip), we log and continue rather than aborting the
+    whole sync.
     """
     if depth > max_depth:
         return []
     out: list[tuple] = []
-    for f in client.list_folder(folder_id):
+    try:
+        children = client.list_folder(folder_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "list_folder failed for %s (depth=%d): %s",
+            folder_id, depth, e,
+        )
+        return out
+    for f in children:
         if f.mime_type == FOLDER_MIME:
             sub_prefix = f"{prefix}{_safe_filename(f.name)}_"
             out.extend(_walk_payment_files(
