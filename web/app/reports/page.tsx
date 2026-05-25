@@ -147,8 +147,28 @@ export default async function ReportsPage({
                   ? `${((data.active_riders / data.total_rider_population) * 100).toFixed(1)}% of ${data.total_rider_population} total`
                   : undefined
               }
+              tip={
+                <>
+                  <strong>Riders in the selected scope.</strong>{" "}
+                  Definition shifts with the Status filter — Active = currently
+                  subscribed (not in recovery/completed), Recovery = churned
+                  with debt, Completed = paid out, All = everyone.
+                </>
+              }
             />
-            <Stat label="Invoiced (in scope)" value={fmtGhs(data.headlines.lifetime_invoiced_ghs)} />
+            <Stat
+              label="Invoiced (in scope)"
+              value={fmtGhs(data.headlines.lifetime_invoiced_ghs)}
+              tip={
+                <>
+                  <strong>Total GHS billed to riders in scope across the
+                  selected window.</strong>{" "}
+                  Restricted by View (MTD / Lifetime / Custom), Status,
+                  Fleet, and Agency. Lifetime sums every invoice ever
+                  issued to riders that match the current Status/Fleet/Agency.
+                </>
+              }
+            />
             <Stat
               label={view === "mtd" || view === "custom" ? "Collected (in scope)" : "Collected"}
               value={fmtGhs(data.headlines.lifetime_collected_ghs)}
@@ -157,12 +177,29 @@ export default async function ReportsPage({
                   ? `Cash in window: ${fmtGhs(data.headlines.cash_in_window_ghs)}`
                   : undefined
               }
+              tip={
+                <>
+                  <strong>Cash applied against in-scope invoices.</strong>{" "}
+                  Now pulled live from the reconciliation pipeline
+                  (MTN / Telecel / Bank / Cash / Bolt deductions), so this
+                  number matches the Payments page&apos;s Value Received
+                  for the same scope.
+                </>
+              }
             />
             <Stat
               label="Outstanding"
               value={fmtGhs(data.headlines.lifetime_outstanding_ghs)}
               hint={`Collection ratio ${fmtPct(data.headlines.collection_ratio)}`}
               tone="warning"
+              tip={
+                <>
+                  <strong>Open balance across all in-scope invoices.</strong>{" "}
+                  Collection ratio below = collected ÷ invoiced for the
+                  same scope. Portfolio dashboard&apos;s Aging card breaks
+                  this by DPD bucket.
+                </>
+              }
             />
           </div>
 
@@ -184,22 +221,57 @@ export default async function ReportsPage({
                     value={data.headlines.cash_in_window_ghs}
                     subtitle="all payments this period (any invoice age)"
                     tone="moss"
+                    tip={
+                      <>
+                        <strong>Sum of every payment dated inside the
+                        window, regardless of which invoice it was
+                        applied to.</strong>{" "}
+                        True cash flow this period — matches the
+                        Payments page&apos;s Value Received for the same
+                        scope.
+                      </>
+                    }
                   />
                   <CashTile
                     label="Applied to this period's invoices"
                     value={data.headlines.cash_applied_to_period_ghs ?? 0}
                     subtitle="paid against invoices issued in window"
+                    tip={
+                      <>
+                        <strong>Subset of Cash received that landed on
+                        invoices ISSUED inside this window.</strong>{" "}
+                        Drives the headline collection ratio above.
+                      </>
+                    }
                   />
                   <CashTile
                     label="Applied to prior invoices"
                     value={data.headlines.cash_applied_to_prior_ghs ?? 0}
                     subtitle="paying down older debt"
                     tone="accent"
+                    tip={
+                      <>
+                        <strong>Subset of Cash received that paid down
+                        invoices issued in earlier periods.</strong>{" "}
+                        Important for cash forecasting but doesn&apos;t
+                        move the current period&apos;s collection ratio.
+                      </>
+                    }
                   />
                   <PaymentActivityTile
                     rate={data.headlines.payment_activity_rate ?? 0}
                     paid={data.headlines.riders_paid_in_window ?? 0}
                     total={data.active_riders}
+                    tip={
+                      <>
+                        <strong>% of in-scope riders who made at least
+                        one payment this window.</strong>{" "}
+                        Lower than the active payer rate on the
+                        dashboard because that one uses a rolling 30-day
+                        lookback; this one is fixed to the period
+                        selected above.
+                      </>
+                    }
                   />
                 </div>
                 <p className="text-[11px] text-ink-fade mt-3 leading-relaxed">
@@ -414,18 +486,23 @@ function CashTile({
   value,
   subtitle,
   tone = "default",
+  tip,
 }: {
   label: string;
   value: number;
   subtitle: string;
   tone?: "default" | "moss" | "accent";
+  tip?: React.ReactNode;
 }) {
   const color =
     tone === "moss" ? "text-moss-600" : tone === "accent" ? "text-accent-700" : "text-ink";
   return (
     <div className="rounded-lg bg-canvas-sunken/50 px-4 py-3">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        {label}
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          {label}
+        </div>
+        {tip && <Tooltip content={tip} side="bottom" align="start" />}
       </div>
       <div className={`mt-1 text-xl font-display tracking-tightest ${color}`}>
         {fmtGhs(value)}
@@ -439,15 +516,20 @@ function PaymentActivityTile({
   rate,
   paid,
   total,
+  tip,
 }: {
   rate: number;
   paid: number;
   total: number;
+  tip?: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg bg-canvas-sunken/50 px-4 py-3">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Payment activity rate
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Payment activity rate
+        </div>
+        {tip && <Tooltip content={tip} side="bottom" align="start" />}
       </div>
       <div className="mt-1 text-xl font-display tracking-tightest text-moss-600">
         {fmtPct(rate)}
@@ -464,16 +546,21 @@ function Stat({
   value,
   hint,
   tone = "default",
+  tip,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   tone?: "default" | "warning";
+  tip?: React.ReactNode;
 }) {
   return (
     <div className="surface p-5">
-      <div className="text-[11px] uppercase tracking-wider text-ink-fade font-medium">
-        {label}
+      <div className="flex items-center gap-1.5">
+        <div className="text-[11px] uppercase tracking-wider text-ink-fade font-medium">
+          {label}
+        </div>
+        {tip && <Tooltip content={tip} side="bottom" align="start" />}
       </div>
       <div
         className={`mt-1.5 text-2xl font-display tracking-tightest ${

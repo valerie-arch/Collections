@@ -1,10 +1,11 @@
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tooltip } from "@/components/Tooltip";
 import {
   api, PaymentChannel, PaymentMatchStatus, PaymentsListQuery,
   PaymentsListResponse, PaymentView,
 } from "@/lib/api";
+import { AllocationRow } from "./AllocationRow";
 
 export const dynamic = "force-dynamic";
 
@@ -151,62 +152,87 @@ export default async function PaymentsPage({
                 Showing {offset + 1}-{Math.min(offset + data.rows.length, data.row_total)} of {data.row_total.toLocaleString()}
               </span>
             </header>
-            <table className="data-grid">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Method</th>
-                  <th>Sender / Rider</th>
-                  <th>Reference</th>
-                  <th>Match</th>
-                  <th>Timeliness</th>
-                  <th className="!text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.rows.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-ink-fade py-6">No payments match the filters.</td></tr>
-                )}
-                {data.rows.map((r, i) => (
-                  <tr key={`${r.txn_id}-${i}`}>
-                    <td className="font-mono text-xs">{r.date ?? "—"}</td>
-                    <td className="text-xs">{r.method}</td>
-                    <td>
+            <div className="px-4 py-2 text-[11px] text-ink-fade border-b border-canvas-line/60 grid grid-cols-[6rem_8rem_1fr_1fr_8rem_8rem_8rem] gap-3 font-medium uppercase tracking-wider">
+              <span>Date</span>
+              <span>Method</span>
+              <span>Sender / Rider</span>
+              <span>Reference</span>
+              <span>Match</span>
+              <span>Timeliness</span>
+              <span className="text-right">Amount</span>
+            </div>
+            <div className="divide-y divide-canvas-line/40">
+              {data.rows.length === 0 && (
+                <div className="text-center text-ink-fade py-6 text-sm">No payments match the filters.</div>
+              )}
+              {data.rows.map((r, i) => (
+                <details key={`${r.source_file}-${r.line_no ?? i}`} className="group">
+                  <summary className="px-4 py-2.5 grid grid-cols-[6rem_8rem_1fr_1fr_8rem_8rem_8rem] gap-3 items-center cursor-pointer hover:bg-canvas-sunken/40 list-none">
+                    <span className="font-mono text-xs text-ink">{r.date ?? "—"}</span>
+                    <span className="text-xs text-ink-muted">{r.method}</span>
+                    <span className="min-w-0">
                       {r.matched && r.rider_name ? (
                         <>
-                          <div className="text-sm text-ink">{r.rider_name}</div>
-                          <div className="text-[11px] text-ink-fade">{r.sender_name || "—"}</div>
+                          <div className="text-sm text-ink truncate">{r.rider_name}</div>
+                          <div className="text-[11px] text-ink-fade truncate">{r.sender_name || "—"}</div>
                         </>
                       ) : (
-                        <div className="text-sm text-ink-muted">{r.sender_name || "—"}</div>
+                        <div className="text-sm text-ink-muted truncate">{r.sender_name || "—"}</div>
                       )}
-                    </td>
-                    <td className="font-mono text-[11px] text-ink-muted">{r.reference || "—"}</td>
-                    <td className="text-xs">
-                      {r.matched ? (
-                        <span className="inline-flex items-center gap-1 text-moss-600">
-                          <CheckCircle2 className="w-3 h-3" /> Matched
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-clay-600">
-                          <AlertCircle className="w-3 h-3" /> Unmatched
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-[11px] text-ink-muted">
-                      {r.matched && r.timeliness !== "Unknown" ? r.timeliness : "—"}
-                    </td>
-                    <td className="font-mono text-sm text-right text-moss-600">{fmtGhs(r.amount_ghs)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                    <span className="font-mono text-[11px] text-ink-muted truncate">{r.reference || "—"}</span>
+                    <span className="text-xs">
+                      <MatchBadge row={r} />
+                    </span>
+                    <span className="text-[11px] text-ink-muted">
+                      {r.matched && r.timeliness && r.timeliness !== "Unknown" ? r.timeliness : "—"}
+                    </span>
+                    <span className="font-mono text-sm text-right text-moss-600">{fmtGhs(r.amount_ghs)}</span>
+                  </summary>
+                  <AllocationRow row={r} />
+                </details>
+              ))}
+            </div>
           </section>
 
           <Pagination total={data.row_total} limit={limit} page={pageNum} query={query} />
         </>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Match status badge — reflects auto/manual/not_rider/pending
+// ---------------------------------------------------------------------------
+
+function MatchBadge({ row }: { row: import("@/lib/api").PaymentListRow }) {
+  const status = row.allocation_status ?? (row.matched ? "auto" : "pending");
+  if (status === "manually_allocated") {
+    return (
+      <span className="inline-flex items-center gap-1 text-moss-600">
+        <CheckCircle2 className="w-3 h-3" /> Manual
+      </span>
+    );
+  }
+  if (status === "auto") {
+    return (
+      <span className="inline-flex items-center gap-1 text-moss-600">
+        <CheckCircle2 className="w-3 h-3" /> Matched
+      </span>
+    );
+  }
+  if (status === "not_rider") {
+    return (
+      <span className="inline-flex items-center gap-1 text-ink-fade">
+        <XCircle className="w-3 h-3" /> Not rider
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-clay-600">
+      <AlertCircle className="w-3 h-3" /> Unmatched
+    </span>
   );
 }
 

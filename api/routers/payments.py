@@ -16,12 +16,17 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from api.agents.drive_sync import PAYMENTS_LOCAL_DIR, sync_payments
 from api.agents.payments import reconcile_payments
+from api.agents.payments.matcher import RiderRecord
+from api.agents.payments.suggestions import (
+    MatchCandidate, build_history_index, suggest_matches,
+)
 from api.agents.payments.xlsx_writer import write_zoho_schedule
 from api.config import settings
-from api.storage import suspense as suspense_store
+from api.storage import payment_allocations, suspense as suspense_store
 
 logger = logging.getLogger(__name__)
 
@@ -303,6 +308,73 @@ def _list_payments_impl(
         logger.warning("reconciliation enrichment failed: %s", e)
 
     # ------------------------------------------------------------------
+    # 2b) Apply manual allocation decisions from the storage layer.
+    # The user reviews unmatched payments on the Payments page and either
+    # allocates them to a rider (override) or marks them as not_rider
+    # (excluded from collections + QB schedule entirely).
+    # ------------------------------------------------------------------
+    decisions = payment_allocations.all_decisions()
+    for r in rows:
+        dec = decisions.get(
+            f"{r['source_file']}#{r['line_no']}"
+        )
+        if not dec:
+            r["allocation_status"] = (
+                "auto" if r["matched"] else "pending"
+            )
+            r["decided_by"] = ""
+            r["decided_at"] = ""
+            continue
+        if dec["status"] == payment_allocations.STATUS_NOT_RIDER:
+            r["matched"] = False
+            r["allocation_status"] = "not_rider"
+            r["rider_id"] = ""
+            r["rider_name"] = ""
+        elif dec["status"] == payment_allocations.STATUS_ALLOCATED:
+            r["matched"] = True
+            r["allocation_status"] = "manually_allocated"
+            r["rider_id"] = dec.get("rider_id", "")
+            r["rider_name"] = dec.get("rider_name", "")
+        r["decided_by"] = dec.get("decided_by", "")
+        r["decided_at"] = dec.get("decided_at", "")
+
+    # ------------------------------------------------------------------
+    # 2c) Build suggestions for everything that's still pending after
+    # both auto-match and manual decisions.
+    # ------------------------------------------------------------------
+    history = build_history_index(decisions.values())
+    rider_master: list[RiderRecord] = []
+    try:
+        from api.agents.collections_report.parsers import parse_invoice_folder
+        seen: set[str] = set()
+        for inv in parse_invoice_folder(INVOICES_DIR):
+            cid = (inv.customer_id or "").strip()
+            if not cid or cid in seen:
+                continue
+            seen.add(cid)
+            rider_master.append(RiderRecord(
+                customer_id=cid, customer_name=inv.customer_name or "",
+            ))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("could not build rider master for suggestions: %s", e)
+
+    for r in rows:
+        if r["allocation_status"] != "pending":
+            r["suggestions"] = []
+            continue
+        cands = suggest_matches(r["sender_name"], rider_master, history=history)
+        r["suggestions"] = [
+            {
+                "rider_id": c.rider_id,
+                "rider_name": c.rider_name,
+                "confidence": c.confidence,
+                "reason": c.reason,
+                "detail": c.detail,
+            }
+            for c in cands
+        ]
+
+    # ------------------------------------------------------------------
     # 3) Apply view (date) filter first — KPIs are scoped to the window.
     # ------------------------------------------------------------------
     if view != "lifetime":
@@ -421,6 +493,61 @@ def _list_payments_impl(
     }
 
 
+class AllocateRequest(BaseModel):
+    source_file: str
+    line_no: int
+    status: str        # "allocated" | "not_rider"
+    rider_id: Optional[str] = None
+    rider_name: Optional[str] = None
+    # Cached payment metadata so the suggestion engine can mine history later
+    sender_name: Optional[str] = None
+    sender_phone: Optional[str] = None
+    amount_ghs: Optional[float] = None
+    payment_date: Optional[str] = None
+    reference: Optional[str] = None
+    decided_by: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/allocate")
+def allocate_payment(req: AllocateRequest) -> dict:
+    """Record a manual allocation decision for one payment row.
+
+    status="allocated"  → assign rider_id (must be set). The Payments page
+                          shows this row as Matched going forward and the
+                          QB schedule includes it.
+    status="not_rider"  → exclude this payment from collections entirely
+                          (e.g. supplier refund, miskeyed test). Hidden
+                          from QB schedule too.
+    """
+    try:
+        rec = payment_allocations.upsert(
+            source_file=req.source_file,
+            line_no=req.line_no,
+            status=req.status,
+            rider_id=req.rider_id,
+            rider_name=req.rider_name,
+            sender_name=req.sender_name,
+            sender_phone=req.sender_phone,
+            amount_ghs=req.amount_ghs,
+            payment_date=req.payment_date,
+            reference=req.reference,
+            decided_by=req.decided_by,
+            notes=req.notes,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "decision": rec}
+
+
+@router.post("/allocate/clear")
+def clear_allocation(req: AllocateRequest) -> dict:
+    """Revert a manual decision — payment goes back to whatever the
+    reconciler said."""
+    removed = payment_allocations.remove(req.source_file, req.line_no)
+    return {"ok": True, "removed": removed}
+
+
 @router.post("/sync")
 def sync_drive() -> dict:
     """Pull every payment file from the configured Drive folder."""
@@ -516,15 +643,114 @@ def reconcile(cutoff: Optional[str] = Query(None)) -> dict:
     return _serialize_result(result)
 
 
+def _apply_decisions_to_result(result):
+    """Fold manual allocation decisions into a ReconcileResult.
+
+    * Auto-matched rows tagged 'not_rider' are dropped from matched (kept
+      out of the QB schedule entirely).
+    * Unmatched rows tagged 'allocated' are promoted to matched and
+      FIFO-allocated against the assigned rider's open invoices, mirroring
+      the engine's automatic-allocation logic.
+    """
+    from api.agents.payments.engine import (
+        Allocation, ReconciledPayment, _open_invoices_for_rider,
+    )
+    from api.agents.collections_report.engine import InvoiceRow
+    from api.agents.collections_report.parsers import is_void, parse_zoho_invoice_csv
+
+    decisions = payment_allocations.all_decisions()
+    if not decisions:
+        return result
+
+    # Reload the invoice corpus so we have full balances to allocate
+    # against (the reconciler held its working copy internally).
+    deduped: dict[str, InvoiceRow] = {}
+    if INVOICES_DIR.exists():
+        for f in sorted(INVOICES_DIR.glob("*.csv")):
+            try:
+                for inv in parse_zoho_invoice_csv(f):
+                    deduped[inv.invoice_id] = inv
+            except Exception:  # noqa: BLE001
+                continue
+    invoices = [i for i in deduped.values() if not is_void(i)]
+    balance_by_invoice = {i.invoice_id: i.balance for i in invoices}
+    # Subtract amounts already allocated by the auto-reconciler.
+    for rp in result.matched:
+        for a in rp.allocations:
+            balance_by_invoice[a.invoice_id] = a.invoice_balance_after
+
+    new_matched = []
+    for rp in result.matched:
+        key = f"{rp.payment.source_file}#{rp.payment.line_no}"
+        dec = decisions.get(key)
+        if dec and dec.get("status") == payment_allocations.STATUS_NOT_RIDER:
+            continue
+        new_matched.append(rp)
+
+    new_unmatched = []
+    for u in result.unmatched:
+        key = f"{u.payment.source_file}#{u.payment.line_no}"
+        dec = decisions.get(key)
+        if not dec:
+            new_unmatched.append(u)
+            continue
+        if dec.get("status") == payment_allocations.STATUS_NOT_RIDER:
+            continue  # drop
+        if dec.get("status") != payment_allocations.STATUS_ALLOCATED:
+            new_unmatched.append(u)
+            continue
+        rider_id = dec.get("rider_id", "")
+        rider_name = dec.get("rider_name", "")
+        if not rider_id:
+            new_unmatched.append(u)
+            continue
+        # FIFO-allocate against this rider's open invoices.
+        open_invs = _open_invoices_for_rider(invoices, rider_id)
+        amount_left = u.payment.amount_ghs
+        rp = ReconciledPayment(
+            payment=u.payment, rider_id=rider_id, rider_name=rider_name,
+            method="manual", confidence=1.0,
+        )
+        for inv in open_invs:
+            if amount_left <= 0:
+                break
+            cur = balance_by_invoice.get(inv.invoice_id, inv.balance)
+            if cur <= 0:
+                continue
+            applied = min(amount_left, cur)
+            new_balance = cur - applied
+            rp.allocations.append(Allocation(
+                invoice_id=inv.invoice_id,
+                invoice_number=inv.invoice_number or inv.invoice_id,
+                applied_ghs=applied,
+                invoice_balance_before=cur,
+                invoice_balance_after=new_balance,
+            ))
+            balance_by_invoice[inv.invoice_id] = new_balance
+            amount_left -= applied
+        rp.unapplied_ghs = amount_left
+        new_matched.append(rp)
+
+    result.matched = new_matched
+    result.unmatched = new_unmatched
+    return result
+
+
 @router.get("/schedule.xlsx")
 def download_schedule(cutoff: Optional[str] = Query(None)):
-    """Return the Zoho upload schedule as an XLSX download."""
+    """Return the Zoho upload schedule as an XLSX download.
+
+    Reflects manual allocation decisions: rows the user marked
+    'not_rider' are excluded, and rows the user manually allocated to
+    a rider are FIFO'd against that rider's open invoices and included.
+    """
     cutoff_date = _parse_cutoff(cutoff)
     result = reconcile_payments(
         payments_folder=PAYMENTS_LOCAL_DIR,
         invoices_folder=INVOICES_DIR,
         cutoff_date=cutoff_date,
     )
+    result = _apply_decisions_to_result(result)
     blob = write_zoho_schedule(result)
     today = date.today().isoformat()
     headers = {

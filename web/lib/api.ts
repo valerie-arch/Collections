@@ -81,6 +81,20 @@ export const api = {
   paymentsList: (params: PaymentsListQuery = {}) =>
     request<PaymentsListResponse>(`/api/payments/list?${qs(params as any)}`),
 
+  // Manual allocation decisions for unmatched payments
+  paymentsAllocate: (body: PaymentAllocateRequest) =>
+    request<{ ok: boolean; decision: any }>(
+      `/api/payments/allocate`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  paymentsAllocateClear: (body: { source_file: string; line_no: number }) =>
+    request<{ ok: boolean; removed: boolean }>(
+      `/api/payments/allocate/clear`,
+      { method: "POST", body: JSON.stringify({ ...body, status: "allocated" }) },
+    ),
+  paymentsScheduleXlsxUrl: (cutoff?: string) =>
+    `${BASE}/api/payments/schedule.xlsx${cutoff ? `?cutoff=${cutoff}` : ""}`,
+
   // Drive
   driveSync: () =>
     request<{
@@ -796,6 +810,17 @@ export type PaymentsListQuery = {
   offset?: number;
 };
 
+export type PaymentMatchCandidate = {
+  rider_id: string;
+  rider_name: string;
+  confidence: number;
+  reason: "history" | "name";
+  detail: string;
+};
+
+export type PaymentAllocationStatus =
+  | "auto" | "manually_allocated" | "not_rider" | "pending";
+
 export type PaymentListRow = {
   source: "receipt" | "bolt";
   channel: string;
@@ -816,6 +841,10 @@ export type PaymentListRow = {
   days_late: number | null;
   timeliness: string;
   stream: string;
+  allocation_status?: PaymentAllocationStatus;
+  decided_by?: string;
+  decided_at?: string;
+  suggestions?: PaymentMatchCandidate[];
 };
 
 export type PaymentMethodSummary = {
@@ -830,6 +859,21 @@ export type PaymentTimelinessBucket = {
   pct_count: number;
   value_ghs: number;
   pct_value: number;
+};
+
+export type PaymentAllocateRequest = {
+  source_file: string;
+  line_no: number;
+  status: "allocated" | "not_rider";
+  rider_id?: string;
+  rider_name?: string;
+  sender_name?: string;
+  sender_phone?: string;
+  amount_ghs?: number;
+  payment_date?: string;
+  reference?: string;
+  decided_by?: string;
+  notes?: string;
 };
 
 export type PaymentsListResponse = {
