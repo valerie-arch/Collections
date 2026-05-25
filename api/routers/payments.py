@@ -206,7 +206,7 @@ def _list_payments_impl(
                 "sender_name": (r.raw_name or "").strip(),
                 "sender_phone": r.msisdn or "",
                 "reference": r.reference or "",
-                "narration": r.raw_name or "",
+                "narration": (getattr(r, "narration", "") or "").strip(),
                 "source_file": r.source_file,
                 "line_no": r.line_no,
                 "txn_id": r.reference or "",

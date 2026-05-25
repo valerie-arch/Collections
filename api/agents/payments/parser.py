@@ -24,20 +24,43 @@ class PaymentRow:
     line_no: int
     date: Optional[date]
     amount_ghs: Decimal
-    raw_name: str            # whatever was in the "name" / "narration" / "description" column
+    raw_name: str            # sender / "From name"
     msisdn: Optional[str]    # phone number if found
-    reference: str           # txn id / cheque ref / wallet ref
+    reference: str           # MoMo External id / bank Reference / Cheque
     channel: str             # mtn | telecel | hero | bank | bolt_deduction | cash | unknown
-    raw: dict                # original row, for debugging / audit
+    narration: str = ""      # freeform message ("To message", "Particulars")
+    raw: dict = None         # original row, for debugging / audit
+
+    def __post_init__(self):
+        if self.raw is None:
+            self.raw = {}
 
 
 # Column aliases — case-insensitive substring match.
 _DATE_KEYS = ("date", "txn date", "transaction date", "value date", "posted")
 _AMOUNT_KEYS = ("amount", "credit", "credit amount", "amount paid", "amount (ghs)", "total")
-_NAME_KEYS = ("name", "narration", "description", "details", "customer", "sender", "payer")
-_PHONE_KEYS = ("phone", "msisdn", "mobile", "number", "sender phone", "msisdn / phone")
-_REF_KEYS = ("reference", "ref", "txn id", "transaction id", "transaction ref", "wallet id", "cheque", "reference number")
-_CHANNEL_KEYS = ("channel", "mode", "payment mode", "method", "source")
+_NAME_KEYS = ("from name", "sender name", "name", "narration", "description", "details", "customer", "sender", "payer")
+_PHONE_KEYS = ("from account", "phone", "msisdn", "mobile", "number", "sender phone", "msisdn / phone")
+# Order matters: MoMo statements have BOTH "Id" (internal wallet record)
+# and "External id" (the actual MoMo Txn ID Finance recognises). Bank
+# statements use "Reference" / "Cheque". We list the specific MoMo and
+# bank aliases first so they win over generic shorter strings.
+_REF_KEYS = (
+    "external id", "external ref", "external reference",
+    "transaction id", "transaction ref", "reference number",
+    "receipt number", "receipt no", "receipt",
+    "txn id", "trxn id", "trans id",
+    "wallet id", "voucher", "cheque",
+    "reference", "ref",
+)
+# Narration = the freeform message the sender attached to the payment
+# (MoMo "To message", bank statement "Particulars"/"Description"). Kept
+# distinct from sender name so the UI can show both.
+_NARRATION_KEYS = (
+    "to message", "message", "narration", "remarks", "particulars",
+    "memo", "description",
+)
+_CHANNEL_KEYS = ("channel", "mode", "payment mode", "method", "source", "type", "provider category")
 
 
 def _norm(s: str) -> str:
@@ -184,6 +207,7 @@ def parse_payment_file(path: str | Path) -> list[PaymentRow]:
     col_name = _find_col(headers, _NAME_KEYS)
     col_phone = _find_col(headers, _PHONE_KEYS)
     col_ref = _find_col(headers, _REF_KEYS)
+    col_narration = _find_col(headers, _NARRATION_KEYS)
     col_channel = _find_col(headers, _CHANNEL_KEYS)
 
     if not col_amount:
@@ -208,6 +232,7 @@ def parse_payment_file(path: str | Path) -> list[PaymentRow]:
             str(row.get(col_ref, "")) if col_ref else "",
         )
         ref = str(row.get(col_ref, "")).strip() if col_ref else ""
+        narration = str(row.get(col_narration, "")).strip() if col_narration else ""
         channel = _detect_channel(
             str(row.get(col_channel, "")) if col_channel else "",
             raw_name,
@@ -222,6 +247,7 @@ def parse_payment_file(path: str | Path) -> list[PaymentRow]:
                 msisdn=msisdn,
                 reference=ref,
                 channel=channel,
+                narration=narration,
                 raw=dict(row),
             )
         )
