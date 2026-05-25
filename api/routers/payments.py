@@ -351,6 +351,11 @@ def _list_payments_impl(
             r["allocation_status"] = "manually_allocated"
             r["rider_id"] = dec.get("rider_id", "")
             r["rider_name"] = dec.get("rider_name", "")
+        elif dec["status"] == payment_allocations.STATUS_UNBILLED_RIDER:
+            r["matched"] = True
+            r["allocation_status"] = "unbilled_rider"
+            r["rider_id"] = dec.get("rider_id", "")
+            r["rider_name"] = dec.get("rider_name", "")
         r["decided_by"] = dec.get("decided_by", "")
         r["decided_at"] = dec.get("decided_at", "")
 
@@ -512,7 +517,7 @@ def _list_payments_impl(
 class AllocateRequest(BaseModel):
     source_file: str
     line_no: int
-    status: str        # "allocated" | "not_rider"
+    status: str        # "allocated" | "unbilled_rider" | "not_rider"
     rider_id: Optional[str] = None
     rider_name: Optional[str] = None
     # Cached payment metadata so the suggestion engine can mine history later
@@ -529,12 +534,15 @@ class AllocateRequest(BaseModel):
 def allocate_payment(req: AllocateRequest) -> dict:
     """Record a manual allocation decision for one payment row.
 
-    status="allocated"  → assign rider_id (must be set). The Payments page
-                          shows this row as Matched going forward and the
-                          QB schedule includes it.
-    status="not_rider"  → exclude this payment from collections entirely
-                          (e.g. supplier refund, miskeyed test). Hidden
-                          from QB schedule too.
+    status="allocated"       — assign rider_id; FIFO against open invoices,
+                                included in QB schedule.
+    status="unbilled_rider"  — rider identified but has no open invoice.
+                                Posted to QB as a customer credit so the
+                                payment is captured and can be applied
+                                when a later invoice is issued.
+    status="not_rider"       — payment not collections-related (supplier
+                                refund, miskeyed test). Excluded from
+                                collections + QB schedule entirely.
     """
     try:
         rec = payment_allocations.upsert(
@@ -562,6 +570,70 @@ def clear_allocation(req: AllocateRequest) -> dict:
     reconciler said."""
     removed = payment_allocations.remove(req.source_file, req.line_no)
     return {"ok": True, "removed": removed}
+
+
+@router.get("/riders/search")
+def search_riders(q: str = Query("", min_length=0), limit: int = Query(20, ge=1, le=100)):
+    """Free-text rider search for the Payments allocation typeahead.
+
+    Searches the customer master (built from the invoice corpus) for
+    riders whose customer_id or customer_name matches the query.
+    Returns the top N by a simple relevance score: exact id wins, then
+    name prefix, then substring.
+    """
+    from api.agents.collections_report.parsers import parse_invoice_folder
+
+    needle = (q or "").strip().lower()
+    if not needle:
+        return {"q": q, "total": 0, "rows": []}
+
+    # Build rider master once per request — cheap.
+    seen: dict[str, str] = {}  # customer_id -> latest name
+    if INVOICES_DIR.exists():
+        try:
+            for inv in parse_invoice_folder(INVOICES_DIR):
+                cid = (inv.customer_id or "").strip()
+                if not cid:
+                    continue
+                # Keep the longest observed name as the canonical display.
+                existing = seen.get(cid, "")
+                cand = inv.customer_name or ""
+                if len(cand) > len(existing):
+                    seen[cid] = cand
+        except Exception as e:  # noqa: BLE001
+            logger.warning("rider search: invoice load failed: %s", e)
+
+    def _score(cid: str, name: str) -> float:
+        cid_l = cid.lower()
+        name_l = name.lower()
+        if cid_l == needle:
+            return 1.0
+        if name_l == needle:
+            return 0.95
+        if name_l.startswith(needle):
+            return 0.85
+        if cid_l.startswith(needle):
+            return 0.80
+        if needle in name_l:
+            return 0.65
+        if needle in cid_l:
+            return 0.60
+        return 0.0
+
+    scored: list[tuple[float, str, str]] = []
+    for cid, name in seen.items():
+        s = _score(cid, name)
+        if s > 0:
+            scored.append((s, cid, name))
+    scored.sort(key=lambda x: (-x[0], x[2].lower()))
+    page = scored[:limit]
+    return {
+        "q": q, "total": len(scored),
+        "rows": [
+            {"rider_id": cid, "rider_name": name, "score": round(s, 2)}
+            for s, cid, name in page
+        ],
+    }
 
 
 @router.post("/sync")
@@ -712,7 +784,10 @@ def _apply_decisions_to_result(result):
             continue
         if dec.get("status") == payment_allocations.STATUS_NOT_RIDER:
             continue  # drop
-        if dec.get("status") != payment_allocations.STATUS_ALLOCATED:
+        if dec.get("status") not in {
+            payment_allocations.STATUS_ALLOCATED,
+            payment_allocations.STATUS_UNBILLED_RIDER,
+        }:
             new_unmatched.append(u)
             continue
         rider_id = dec.get("rider_id", "")
@@ -720,31 +795,38 @@ def _apply_decisions_to_result(result):
         if not rider_id:
             new_unmatched.append(u)
             continue
-        # FIFO-allocate against this rider's open invoices.
-        open_invs = _open_invoices_for_rider(invoices, rider_id)
-        amount_left = u.payment.amount_ghs
         rp = ReconciledPayment(
             payment=u.payment, rider_id=rider_id, rider_name=rider_name,
-            method="manual", confidence=1.0,
+            method="manual" if dec["status"] == payment_allocations.STATUS_ALLOCATED else "unbilled",
+            confidence=1.0,
         )
-        for inv in open_invs:
-            if amount_left <= 0:
-                break
-            cur = balance_by_invoice.get(inv.invoice_id, inv.balance)
-            if cur <= 0:
-                continue
-            applied = min(amount_left, cur)
-            new_balance = cur - applied
-            rp.allocations.append(Allocation(
-                invoice_id=inv.invoice_id,
-                invoice_number=inv.invoice_number or inv.invoice_id,
-                applied_ghs=applied,
-                invoice_balance_before=cur,
-                invoice_balance_after=new_balance,
-            ))
-            balance_by_invoice[inv.invoice_id] = new_balance
-            amount_left -= applied
-        rp.unapplied_ghs = amount_left
+        if dec["status"] == payment_allocations.STATUS_ALLOCATED:
+            # FIFO-allocate against this rider's open invoices.
+            open_invs = _open_invoices_for_rider(invoices, rider_id)
+            amount_left = u.payment.amount_ghs
+            for inv in open_invs:
+                if amount_left <= 0:
+                    break
+                cur = balance_by_invoice.get(inv.invoice_id, inv.balance)
+                if cur <= 0:
+                    continue
+                applied = min(amount_left, cur)
+                new_balance = cur - applied
+                rp.allocations.append(Allocation(
+                    invoice_id=inv.invoice_id,
+                    invoice_number=inv.invoice_number or inv.invoice_id,
+                    applied_ghs=applied,
+                    invoice_balance_before=cur,
+                    invoice_balance_after=new_balance,
+                ))
+                balance_by_invoice[inv.invoice_id] = new_balance
+                amount_left -= applied
+            rp.unapplied_ghs = amount_left
+        else:
+            # Unbilled rider — no open invoice to apply against. Surface
+            # the full amount as unapplied so the QB writer can post it
+            # as a Customer Credit row.
+            rp.unapplied_ghs = u.payment.amount_ghs
         new_matched.append(rp)
 
     result.matched = new_matched

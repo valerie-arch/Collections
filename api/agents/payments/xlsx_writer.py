@@ -73,6 +73,7 @@ def write_zoho_schedule(result: ReconcileResult) -> bytes:
     for rp in result.matched:
         pay_date = rp.payment.date.isoformat() if rp.payment.date else ""
         mode = _PAYMENT_MODE_MAP.get(rp.payment.channel, "Other")
+        # Normal case: one row per invoice allocation.
         for a in rp.allocations:
             ws.cell(row=row, column=1, value=rp.rider_name).alignment = left
             ws.cell(row=row, column=2, value=rp.rider_id).alignment = left
@@ -84,6 +85,27 @@ def write_zoho_schedule(result: ReconcileResult) -> bytes:
             ws.cell(row=row, column=6, value=mode).alignment = center
             ws.cell(row=row, column=7, value=rp.payment.reference).alignment = left
             desc = f"Reconciled from {rp.payment.source_file} line {rp.payment.line_no}"
+            ws.cell(row=row, column=8, value=desc).alignment = left
+            ws.cell(row=row, column=9, value=rp.payment.source_file).alignment = left
+            ws.cell(row=row, column=10, value=rp.method).alignment = center
+            ws.cell(row=row, column=11, value=f"{rp.confidence:.0%}").alignment = center
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=row, column=col).border = border
+            row += 1
+        # Unbilled-rider case: rider identified but had no open invoice
+        # to apply against. Emit one row with Invoice Number = "CREDIT"
+        # so Finance can import it as a customer credit in Zoho.
+        if not rp.allocations and rp.unapplied_ghs > 0:
+            ws.cell(row=row, column=1, value=rp.rider_name).alignment = left
+            ws.cell(row=row, column=2, value=rp.rider_id).alignment = left
+            ws.cell(row=row, column=3, value="CREDIT (no open invoice)").alignment = left
+            ws.cell(row=row, column=4, value=pay_date).alignment = center
+            cell_amount = ws.cell(row=row, column=5, value=_money(rp.unapplied_ghs))
+            cell_amount.number_format = "#,##0.00"
+            cell_amount.alignment = center
+            ws.cell(row=row, column=6, value=mode).alignment = center
+            ws.cell(row=row, column=7, value=rp.payment.reference).alignment = left
+            desc = f"Rider not yet billed — post as customer credit. Source {rp.payment.source_file} line {rp.payment.line_no}"
             ws.cell(row=row, column=8, value=desc).alignment = left
             ws.cell(row=row, column=9, value=rp.payment.source_file).alignment = left
             ws.cell(row=row, column=10, value=rp.method).alignment = center

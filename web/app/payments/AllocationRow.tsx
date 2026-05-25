@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, AlertCircle, XCircle, RotateCcw } from "lucide-react";
-import { api, PaymentListRow } from "@/lib/api";
+import {
+  CheckCircle2, AlertCircle, XCircle, RotateCcw, FileWarning, Search,
+} from "lucide-react";
+import { api, PaymentListRow, RiderSearchResult } from "@/lib/api";
 
 function fmtGhs(n: number) {
   return `GHS ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,11 +23,14 @@ function fmtPct(n: number) {
 export function AllocationRow({ row }: { row: PaymentListRow }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [pickedRiderId, setPickedRiderId] = useState<string>("");
-  const [pickedRiderName, setPickedRiderName] = useState<string>("");
-  const [customRiderId, setCustomRiderId] = useState<string>("");
-  const [customRiderName, setCustomRiderName] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
+
+  // Rider typeahead state
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<RiderSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [picked, setPicked] = useState<RiderSearchResult | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sourceFile = row.source_file;
   const lineNo = row.line_no ?? 0;
@@ -75,6 +80,50 @@ export function AllocationRow({ row }: { row: PaymentListRow }) {
       }
     });
   };
+
+  const markUnbilledRider = (rider_id: string, rider_name: string) => {
+    if (!rider_id) {
+      setErr("Pick a rider first.");
+      return;
+    }
+    setErr(null);
+    start(async () => {
+      try {
+        await api.paymentsAllocate({
+          ...baseMeta,
+          status: "unbilled_rider",
+          rider_id, rider_name,
+        });
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "update failed");
+      }
+    });
+  };
+
+  // Debounced rider search — fires 250ms after the user stops typing.
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!query.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await api.paymentsRiderSearch(query.trim(), 10);
+        setResults(res.rows);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [query]);
 
   const clearDecision = () => {
     setErr(null);
@@ -150,6 +199,24 @@ export function AllocationRow({ row }: { row: PaymentListRow }) {
             </button>
           </>
         )}
+        {status === "unbilled_rider" && (
+          <>
+            <span className="inline-flex items-center gap-1 text-accent-700">
+              <FileWarning className="w-3 h-3" />
+              Rider <strong>{row.rider_name || row.rider_id}</strong> identified but not yet
+              billed — will post as customer credit in QB
+            </span>
+            {row.decided_by && (
+              <span className="text-ink-fade">by {row.decided_by}</span>
+            )}
+            <button
+              onClick={clearDecision} disabled={pending}
+              className="ml-auto inline-flex items-center gap-1 text-ink-muted hover:text-ink"
+            >
+              <RotateCcw className="w-3 h-3" /> Clear decision
+            </button>
+          </>
+        )}
         {status === "pending" && (
           <span className="inline-flex items-center gap-1 text-clay-600">
             <AlertCircle className="w-3 h-3" />
@@ -194,40 +261,77 @@ export function AllocationRow({ row }: { row: PaymentListRow }) {
             )}
           </div>
 
-          <details className="text-[11px]">
+          {/* Typeahead search through the rider master */}
+          <details className="text-[11px]" open={!row.suggestions || row.suggestions.length === 0}>
             <summary className="cursor-pointer text-ink-muted hover:text-ink select-none">
-              Pick a different rider
+              Search the rider database
             </summary>
-            <div className="mt-2 flex flex-wrap items-end gap-2">
-              <div>
-                <label className="block text-[10px] uppercase tracking-wider text-ink-fade font-medium mb-1">
-                  Customer ID
-                </label>
+            <div className="mt-2 space-y-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-fade pointer-events-none" />
                 <input
-                  type="text" value={customRiderId}
-                  onChange={(e) => setCustomRiderId(e.target.value)}
-                  placeholder="WHR1234"
-                  className="border border-canvas-line rounded px-2 py-1.5 font-mono text-[11px]"
+                  type="text"
+                  value={query}
+                  onChange={(e) => { setQuery(e.target.value); setPicked(null); }}
+                  placeholder="Type a rider name or customer ID (e.g. WHR1234)"
+                  className="w-full pl-8 pr-3 py-1.5 border border-canvas-line rounded text-[11px]"
                 />
               </div>
-              <div className="flex-1 min-w-[180px]">
-                <label className="block text-[10px] uppercase tracking-wider text-ink-fade font-medium mb-1">
-                  Customer name
-                </label>
-                <input
-                  type="text" value={customRiderName}
-                  onChange={(e) => setCustomRiderName(e.target.value)}
-                  placeholder="optional, for audit"
-                  className="w-full border border-canvas-line rounded px-2 py-1.5 text-[11px]"
-                />
-              </div>
-              <button
-                onClick={() => allocate(customRiderId.trim(), customRiderName.trim())}
-                disabled={pending || !customRiderId.trim()}
-                className="btn-primary !py-1 !text-[11px]"
-              >
-                Allocate
-              </button>
+              {searching && (
+                <div className="text-[11px] text-ink-fade px-1">Searching…</div>
+              )}
+              {!searching && query.trim() && results.length === 0 && (
+                <div className="text-[11px] text-ink-fade px-1">
+                  No riders match &quot;{query}&quot;. Try a partial name or customer ID.
+                </div>
+              )}
+              {results.length > 0 && (
+                <div className="max-h-56 overflow-y-auto border border-canvas-line/60 rounded divide-y divide-canvas-line/40">
+                  {results.map((r) => {
+                    const isPicked = picked?.rider_id === r.rider_id;
+                    return (
+                      <button
+                        key={r.rider_id}
+                        type="button"
+                        onClick={() => setPicked(r)}
+                        className={`w-full text-left px-3 py-1.5 hover:bg-canvas-sunken/50 ${
+                          isPicked ? "bg-accent-500/10" : ""
+                        }`}
+                      >
+                        <div className="text-sm text-ink">{r.rider_name || "(no name)"}</div>
+                        <div className="text-[11px] text-ink-fade">
+                          <span className="font-mono">{r.rider_id}</span>
+                          {" · "}match {fmtPct(r.score)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {picked && (
+                <div className="flex items-center gap-2 pt-2 border-t border-canvas-line/40">
+                  <span className="text-[11px] text-ink-muted">
+                    Selected: <strong className="text-ink">{picked.rider_name}</strong>{" "}
+                    <span className="font-mono text-ink-fade">({picked.rider_id})</span>
+                  </span>
+                  <button
+                    onClick={() => allocate(picked.rider_id, picked.rider_name)}
+                    disabled={pending}
+                    className="btn-primary !py-1 !text-[11px] ml-auto"
+                  >
+                    Allocate to this rider
+                  </button>
+                  <button
+                    onClick={() => markUnbilledRider(picked.rider_id, picked.rider_name)}
+                    disabled={pending}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-accent-500/40 text-accent-700 hover:bg-accent-500/10"
+                    title="Use this when the rider has been identified but they don't have an open invoice yet — the payment will be posted to QB as a customer credit."
+                  >
+                    <FileWarning className="w-3 h-3" />
+                    Rider not yet billed (credit)
+                  </button>
+                </div>
+              )}
             </div>
           </details>
 

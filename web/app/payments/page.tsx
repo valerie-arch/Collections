@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, XCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, XCircle, FileWarning } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -219,6 +219,13 @@ function MatchBadge({ row }: { row: import("@/lib/api").PaymentListRow }) {
     return (
       <span className="inline-flex items-center gap-1 text-moss-600">
         <CheckCircle2 className="w-3 h-3" /> Matched
+      </span>
+    );
+  }
+  if (status === "unbilled_rider") {
+    return (
+      <span className="inline-flex items-center gap-1 text-accent-700">
+        <FileWarning className="w-3 h-3" /> Unbilled
       </span>
     );
   }

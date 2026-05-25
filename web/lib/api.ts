@@ -95,6 +95,12 @@ export const api = {
   paymentsScheduleXlsxUrl: (cutoff?: string) =>
     `${BASE}/api/payments/schedule.xlsx${cutoff ? `?cutoff=${cutoff}` : ""}`,
 
+  // Free-text rider search for the allocation typeahead
+  paymentsRiderSearch: (q: string, limit = 20) =>
+    request<RiderSearchResponse>(
+      `/api/payments/riders/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    ),
+
   // Drive
   driveSync: () =>
     request<{
@@ -819,7 +825,19 @@ export type PaymentMatchCandidate = {
 };
 
 export type PaymentAllocationStatus =
-  | "auto" | "manually_allocated" | "not_rider" | "pending";
+  | "auto" | "manually_allocated" | "unbilled_rider" | "not_rider" | "pending";
+
+export type RiderSearchResult = {
+  rider_id: string;
+  rider_name: string;
+  score: number;
+};
+
+export type RiderSearchResponse = {
+  q: string;
+  total: number;
+  rows: RiderSearchResult[];
+};
 
 export type PaymentListRow = {
   source: "receipt" | "bolt";
@@ -864,7 +882,7 @@ export type PaymentTimelinessBucket = {
 export type PaymentAllocateRequest = {
   source_file: string;
   line_no: number;
-  status: "allocated" | "not_rider";
+  status: "allocated" | "unbilled_rider" | "not_rider";
   rider_id?: string;
   rider_name?: string;
   sender_name?: string;

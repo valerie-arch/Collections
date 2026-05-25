@@ -27,8 +27,11 @@ STORE_PATH = Path("data/payment_allocations.json")
 _LOCK = Lock()
 
 # Decision codes
-STATUS_ALLOCATED = "allocated"
-STATUS_NOT_RIDER = "not_rider"
+STATUS_ALLOCATED = "allocated"            # rider known + has invoices to apply against
+STATUS_UNBILLED_RIDER = "unbilled_rider"  # rider known, no open invoice — book as customer credit
+STATUS_NOT_RIDER = "not_rider"            # payment isn't collections-related — exclude entirely
+
+VALID_STATUSES = {STATUS_ALLOCATED, STATUS_UNBILLED_RIDER, STATUS_NOT_RIDER}
 
 
 def _now() -> str:
@@ -84,10 +87,10 @@ def upsert(
     The sender_* + amount + reference fields are cached on the record so
     the suggestion engine can mine the history (sender_name → rider_id)
     without having to re-load every payment file."""
-    if status not in {STATUS_ALLOCATED, STATUS_NOT_RIDER}:
+    if status not in VALID_STATUSES:
         raise ValueError(f"unknown status: {status!r}")
-    if status == STATUS_ALLOCATED and not rider_id:
-        raise ValueError("rider_id is required when status is 'allocated'")
+    if status in {STATUS_ALLOCATED, STATUS_UNBILLED_RIDER} and not rider_id:
+        raise ValueError(f"rider_id is required when status is {status!r}")
 
     key = _key(source_file, line_no)
     rec = {
