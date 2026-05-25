@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
+import { NavigationProgress } from "@/components/NavigationProgress";
 import { TopBar } from "@/components/TopBar";
 import { SessionProvider } from "@/components/SessionProvider";
 import { getServerSession } from "next-auth";
@@ -21,6 +22,7 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <SessionProvider>
+          <NavigationProgress />
           {session ? (
             <div className="flex min-h-screen bg-canvas">
               <Nav />

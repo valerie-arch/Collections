@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { SyncDriveButton } from "@/components/SyncDriveButton";
+import { Tooltip } from "@/components/Tooltip";
 import { api } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -41,11 +42,27 @@ export default async function Overview() {
               ? `${((mtd.active_riders / mtd.total_rider_population) * 100).toFixed(1)}% of ${mtd.total_rider_population} total`
               : undefined
           }
+          tip={
+            <>
+              <strong>Riders with an &quot;active&quot; subscription
+              status this month.</strong>{" "}
+              Excludes Recovery (churned with debt) and Completed
+              (fully paid out). Matches the Active filter on Reports.
+            </>
+          }
         />
         <Stat
           label="MRR (this month)"
           value={latestMonth ? `GHS ${latestMonth.mrr_ghs.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
           hint={latestMonth ? `${latestMonth.invoices_issued} invoices issued` : undefined}
+          tip={
+            <>
+              <strong>Monthly Recurring Revenue.</strong>{" "}
+              Sum of invoiced amounts in the latest billing month for
+              riders currently being billed. Doesn&apos;t count
+              one-off charges or B2B invoices.
+            </>
+          }
         />
         <Stat
           label="Outstanding (active)"
@@ -55,12 +72,29 @@ export default async function Overview() {
               : "—"
           }
           tone="warning"
+          tip={
+            <>
+              <strong>Open balance across all invoices for active
+              riders.</strong>{" "}
+              The Portfolio dashboard&apos;s Aging card breaks this by
+              DPD bucket. Does not include Recovery / Completed riders.
+            </>
+          }
         />
         <Stat
           label="Critical outliers"
           value={outliers?.counts?._critical?.toLocaleString() ?? outliers?.total?.toString() ?? "—"}
           hint="See Exceptions for details"
           tone="warning"
+          tip={
+            <>
+              <strong>Riders flagged by the auto-detector as needing
+              urgent attention.</strong>{" "}
+              Mix of large unmatched payments, very old open invoices,
+              suspected duplicate riders, and other data-quality
+              signals. Full list on the Exceptions page.
+            </>
+          }
         />
       </div>
 
@@ -143,16 +177,21 @@ function Stat({
   value,
   hint,
   tone = "default",
+  tip,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   tone?: "default" | "warning";
+  tip?: React.ReactNode;
 }) {
   return (
     <div className="surface p-6">
-      <div className="text-xs uppercase tracking-wider text-ink-fade font-medium">
-        {label}
+      <div className="flex items-center gap-1.5">
+        <div className="text-xs uppercase tracking-wider text-ink-fade font-medium">
+          {label}
+        </div>
+        {tip && <Tooltip content={tip} side="bottom" align="start" />}
       </div>
       <div
         className={`mt-2 text-2xl font-display tracking-tightest ${

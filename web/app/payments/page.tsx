@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tooltip } from "@/components/Tooltip";
 import {
@@ -75,14 +74,8 @@ export default async function PaymentsPage({
         title={data ? `Payments — ${data.window.label}` : "Payments"}
         description="Every payment from MTN MoMo, Telecel, AirtelTigo, Bank, Cash, and Bolt deductions. Counts, value, and timeliness update with the filters."
         actions={
-          <div className="flex items-center gap-3">
-            <FilterChips view={view} channel={channel} match_status={match_status}
-                         start={start} end={end} q={q} />
-            <Link href="/payments/reconcile"
-                  className="btn-primary inline-flex items-center gap-2 ml-2">
-              Reconcile <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          <FilterChips view={view} channel={channel} match_status={match_status}
+                       start={start} end={end} q={q} />
         }
       />
 
@@ -121,10 +114,11 @@ export default async function PaymentsPage({
 
       {!data ? (
         <div className="surface p-8 text-center text-sm text-ink-fade">
-          Couldn't reach the Payments API. The dev server may be down — check{" "}
+          Couldn&apos;t reach the Payments API. Check{" "}
           <code className="font-mono text-xs">NEXT_PUBLIC_API_URL</code> and try
-          again, or hit <a href="/payments/reconcile" className="underline">Reconcile</a> to
-          force a fresh sync.
+          again, or hit <strong>Sync Drive</strong> on the{" "}
+          <a href="/" className="underline">Overview</a> page to force a fresh
+          pull.
         </div>
       ) : (
         <>
@@ -132,9 +126,10 @@ export default async function PaymentsPage({
             <div className="surface p-3 mb-4 border-l-2 border-clay-500 text-[12px] text-clay-700">
               <strong>Server error:</strong> {data._error}{" "}
               <span className="text-ink-fade">
-                — page is rendering with empty data. Try{" "}
-                <a href="/payments/reconcile" className="underline">Reconcile → Sync Drive</a>{" "}
-                to populate the cache.
+                — page is rendering with empty data. Click{" "}
+                <strong>Sync Drive</strong> on the{" "}
+                <a href="/" className="underline">Overview</a> page to repopulate
+                the cache.
               </span>
             </div>
           )}
@@ -302,8 +297,22 @@ function CountCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
     ? (summary.matched_count / summary.total_payments) * 100 : 0;
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Payments received
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Payments received
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Count of payment transactions in the selected
+              period.</strong>{" "}
+              Includes MTN MoMo, Telecel, AirtelTigo, Bank, Cash, and
+              Bolt deductions. Matched = the reconciler attributed it
+              to a rider; Unmatched = went to the Suspense queue.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-ink">
         {summary.total_payments.toLocaleString()}
@@ -322,8 +331,22 @@ function CountCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
 function ValueCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Value received
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Value received
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Total GHS collected in the selected period.</strong>{" "}
+              Headline cash-in number. &quot;Applied&quot; = sum of
+              payments that have been allocated to specific invoices;
+              &quot;In limbo&quot; = unmatched payments awaiting
+              attribution in Suspense.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-moss-600">
         {fmtGhs0(summary.total_value_ghs)}
@@ -341,8 +364,22 @@ function RidersCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
     ? summary.matched_value_ghs / summary.unique_paying_riders : 0;
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Unique paying riders
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Unique paying riders
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Distinct riders who made at least one payment in
+              the selected period.</strong>{" "}
+              Distinct from total payments because one rider can make
+              multiple payments — this is the active-payer count, the
+              direct input to the dashboard&apos;s 30-day Active Payer Rate.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-ink">
         {summary.unique_paying_riders.toLocaleString()}
@@ -358,8 +395,23 @@ function MethodCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
   const maxVal = Math.max(1, ...summary.by_method.map((m) => m.value_ghs));
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Payments by method
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Payments by method
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Count and value disaggregated across payment
+              rails.</strong>{" "}
+              Mobile money combines MTN, Telecel, and AirtelTigo. Bank
+              transfer is bank statements. Cash is hand-entered. Bolt
+              deduction is the weekly approved-deduction synthetic
+              feed. Tells you channel concentration and fee exposure.
+            </>
+          }
+        />
       </div>
       <div className="mt-3 space-y-2">
         {summary.by_method.length === 0 && (
@@ -384,8 +436,23 @@ function MethodCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
 function TimelinessCard({ summary }: { summary: PaymentsListResponse["summary"] }) {
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Payment timeliness
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Payment timeliness
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Distribution of payments by when they arrived
+              relative to the invoice due date.</strong>{" "}
+              Early / On-time / 1–7 / 8–30 / 30+ days late. Bars
+              are GHS-weighted because a small number of large late
+              payments matter more than many small ones. Only matched
+              payments count (we need a due date to compare against).
+            </>
+          }
+        />
       </div>
       <div className="text-[11px] text-ink-fade mt-1">
         Matched payments only · against invoice due_date

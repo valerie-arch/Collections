@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
+import { Tooltip } from "@/components/Tooltip";
 import {
   api, DashboardAgency, DashboardLookback, DashboardPeriod, DashboardSnapshot,
   DashboardTrends, ReportFleet,
@@ -228,8 +229,23 @@ function CollectionsRateTrendCard({
   const maxInv = Math.max(1, ...data.points.map((p) => p.invoiced_ghs));
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Collections rate trend
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Collections rate trend
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Monthly collections rate (collected ÷ invoiced) over
+              the lookback window.</strong>{" "}
+              Each bar is that month&apos;s invoiced amount; the green
+              overlay is the collected portion. Tells you whether the
+              current rate is a seasonal dip or a deterioration. Target
+              line at 85%.
+            </>
+          }
+        />
       </div>
       <div className="text-[11px] text-ink-fade mt-0.5">
         Monthly rate (line) over invoiced (bar) and collected (overlay) ·
@@ -277,8 +293,21 @@ function MrrMovementTrendCard({
     ? data.points[data.points.length - 1].closing_ghs : 0;
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        MRR movement
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          MRR movement
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Monthly MRR waterfall.</strong>{" "}
+              Tracks whether net new MRR is sustained, accelerating, or
+              decelerating, and which lever is doing the work
+              (acquisition / retention / reactivation).
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-2xl font-display tracking-tightest text-ink">
         {fmtGhs0(lastClosing)}
@@ -325,11 +354,22 @@ function ChargeOffTrendCard({
 }: {
   data: DashboardTrends["charge_off"];
 }) {
+  const tip = (
+    <>
+      <strong>Monthly write-offs minus recoveries from the write-off
+      ledger.</strong>{" "}
+      Tells you the credit cost trend. The cure-rate companion line is
+      deferred until the daily snapshot writer ships.
+    </>
+  );
   if (!data.available) {
     return (
       <section className="surface p-5">
-        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-          Net charge-off trend
+        <div className="flex items-center gap-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+            Net charge-off trend
+          </div>
+          <Tooltip side="bottom" align="start" content={tip} />
         </div>
         <div className="mt-3 border border-dashed border-canvas-line rounded p-3 text-[11px] text-ink-fade leading-relaxed">
           <span className="font-medium text-ink-muted">No data.</span> {data.reason}
@@ -340,8 +380,11 @@ function ChargeOffTrendCard({
   const maxNet = Math.max(1, ...data.points.map((p) => Math.abs(p.net_ghs)));
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Net charge-off trend
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Net charge-off trend
+        </div>
+        <Tooltip side="bottom" align="start" content={tip} />
       </div>
       <div className="text-[11px] text-ink-fade mt-0.5">
         Monthly write-offs minus recoveries (GHS)
@@ -388,8 +431,22 @@ function LifetimeEfficiencyTrendCard({
   const path = xs.map((x, i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${ys[i].toFixed(1)}`).join(" ");
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Lifetime efficiency
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Lifetime efficiency
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Cumulative collected ÷ invoiced through each
+              month-end.</strong>{" "}
+              Slow-moving but the canonical portfolio-health metric.
+              The lookback selector only affects how far back the line
+              starts — the underlying number is always lifetime.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-moss-600">
         {fmtPct(last.efficiency_pct)}
@@ -535,14 +592,20 @@ function LayerHeader({ title, hint }: { title: string; hint: string }) {
 }
 
 function CardShell({
-  title, subtitle, children,
+  title, subtitle, tip, children,
 }: {
-  title: string; subtitle?: string; children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  tip?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <section className="surface p-5">
       <div className="mb-3">
-        <h3 className="text-sm font-medium text-ink">{title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-medium text-ink">{title}</h3>
+          {tip && <Tooltip content={tip} side="bottom" align="start" />}
+        </div>
         {subtitle && (
           <p className="text-[11px] text-ink-fade mt-0.5">{subtitle}</p>
         )}
@@ -589,7 +652,21 @@ function Bar({ pct, tone = "accent" }: { pct: number; tone?: "accent" | "moss" |
 
 function ActivePayerCard({ data }: { data: DashboardSnapshot["behavioral"]["active_payer_rate"] }) {
   return (
-    <CardShell title="Active payer rate" subtitle={`Last ${data.lookback_days} days, by tenure`}>
+    <CardShell
+      title="Active payer rate"
+      subtitle={`Last ${data.lookback_days} days, by tenure`}
+      tip={
+        <>
+          <strong>% of active riders who made a payment in the last 30 days.</strong>{" "}
+          Active = subscription status is &quot;active&quot; (not in
+          recovery/completed). A rider is &quot;paying&quot; if any of
+          their invoices had a last-payment date in the lookback window.
+          Tenure buckets are computed from each rider&apos;s first-ever invoice
+          date — useful for spotting whether new cohorts pay better or
+          worse than long-time riders.
+        </>
+      }
+    >
       <BigNumber
         value={fmtPct(data.overall_rate_pct)}
         sublabel={`${fmtInt(data.overall_paying)} of ${fmtInt(data.overall_active)} active riders paid`}
@@ -612,7 +689,20 @@ function ActivePayerCard({ data }: { data: DashboardSnapshot["behavioral"]["acti
 
 function OnTimeCard({ data }: { data: DashboardSnapshot["behavioral"]["on_time_payment_rate"] }) {
   return (
-    <CardShell title="On-time payment rate" subtitle="Paid on or before invoice due date">
+    <CardShell
+      title="On-time payment rate"
+      subtitle="Paid on or before invoice due date"
+      tip={
+        <>
+          <strong>% of payments arriving by their invoice due_date.</strong>{" "}
+          Proxy for the spec&apos;s &quot;daily GHS 70 hit on schedule&quot; — that
+          framing needs a daily billing-schedule data source we don&apos;t
+          have yet. For now, computed against the due_date on each
+          matched invoice, scoped to payments inside the selected
+          period.
+        </>
+      }
+    >
       <BigNumber
         value={fmtPct(data.on_time_pct)}
         sublabel={`${fmtInt(data.on_time_count)} of ${fmtInt(data.total_paid_count)} payments`}
@@ -637,7 +727,19 @@ function BlockedCard({ title, subtitle, reason }: { title: string; subtitle: str
 function CollectionsCard({ data }: { data: DashboardSnapshot["financial"]["monthly_collections_rate"] }) {
   const { gross_rate_pct: gross, net_rate_pct: net } = data;
   return (
-    <CardShell title="Collections rate" subtitle="Period invoiced vs collected">
+    <CardShell
+      title="Collections rate"
+      subtitle="Period invoiced vs collected"
+      tip={
+        <>
+          <strong>Gross:</strong> collected GHS ÷ invoiced GHS in window.
+          <strong> Net:</strong> collected ÷ (invoiced − write-offs) — only
+          differs from gross once the write-off ledger is populated. The
+          per-rider split below tells you whether a low rate is from
+          partial payers or full no-pays.
+        </>
+      }
+    >
       <div className="flex items-end gap-6">
         <BigNumber
           value={fmtPct(gross)}
@@ -677,7 +779,22 @@ function CollectionsCard({ data }: { data: DashboardSnapshot["financial"]["month
 
 function MrrCard({ data }: { data: DashboardSnapshot["financial"]["mrr"] }) {
   return (
-    <CardShell title="MRR & movement" subtitle="Recurring revenue in window">
+    <CardShell
+      title="MRR & movement"
+      subtitle="Recurring revenue in window"
+      tip={
+        <>
+          <strong>Current MRR</strong> = sum of invoiced amounts this
+          window for riders whose subscription is not explicitly in
+          recovery/completed. <strong>New</strong> = first-ever invoice
+          this window. <strong>Reactivated</strong> = billed this window
+          after a prior status flip. <strong>Churned</strong> = subscription
+          dated recovery/completed inside the window, valued by the
+          rider&apos;s last invoice total. <strong>Net new</strong> =
+          New + Reactivated − Churned.
+        </>
+      }
+    >
       <BigNumber
         value={fmtGhs0(data.current_ghs)}
         sublabel={`${fmtInt(data.active_riders)} active riders this window`}
@@ -713,6 +830,15 @@ function AgingCard({ data }: { data: DashboardSnapshot["portfolio"]["aging"] }) 
     <CardShell
       title="Aging distribution"
       subtitle={`${fmtInt(data.total_riders_with_balance)} riders · ${fmtGhs0(data.total_outstanding_ghs)} outstanding`}
+      tip={
+        <>
+          <strong>Where the unpaid receivables sit by DPD.</strong>{" "}
+          DPD = days since the invoice was issued. Buckets:
+          Current (0–30d) / 31–60 / 61–90 / 91–180 / 181–365 / 365+.
+          The point-in-time view at today&apos;s as_of. A growing
+          31–60 bucket today is a 90+ problem in two months.
+        </>
+      }
     >
       <div className="space-y-2">
         {data.buckets.map((b) => (
@@ -737,7 +863,19 @@ function AgingCard({ data }: { data: DashboardSnapshot["portfolio"]["aging"] }) 
 
 function LifetimeCard({ data }: { data: DashboardSnapshot["portfolio"]["lifetime_efficiency"] }) {
   return (
-    <CardShell title="Lifetime efficiency" subtitle="Cumulative collected ÷ invoiced (always lifetime)">
+    <CardShell
+      title="Lifetime efficiency"
+      subtitle="Cumulative collected ÷ invoiced (always lifetime)"
+      tip={
+        <>
+          <strong>Cumulative lifetime collection efficiency.</strong>{" "}
+          Sum of every payment ever applied ÷ sum of every invoice ever
+          issued. Ignores the period filter — this is the long-arc
+          portfolio health metric Series A diligence asks for. Rising
+          line proves the model improves with scale.
+        </>
+      }
+    >
       <BigNumber
         value={fmtPct(data.efficiency_pct)}
         tone={data.efficiency_pct >= 90 ? "good" : data.efficiency_pct >= 75 ? "warn" : "bad"}
@@ -765,7 +903,20 @@ function NetChargeOffCard({ data }: { data: DashboardSnapshot["portfolio"]["net_
     return <BlockedCard title="Net charge-off" subtitle="Annualized" reason={data.reason} />;
   }
   return (
-    <CardShell title="Net charge-off" subtitle={`Annualized · window ${data.window_days}d`}>
+    <CardShell
+      title="Net charge-off"
+      subtitle={`Annualized · window ${data.window_days}d`}
+      tip={
+        <>
+          <strong>(Written-off balances − recoveries) ÷ average
+          outstanding portfolio, annualized.</strong>{" "}
+          Bottom-line cost of credit risk. Compare against your gross
+          margin on the rent-to-own contract to confirm unit economics
+          still hold after losses. Data comes from the write-off ledger
+          — Finance populates it in Google Sheets.
+        </>
+      }
+    >
       <BigNumber
         value={fmtPct(data.annualized_pct)}
         sublabel={`${fmtGhs0(data.net_ghs)} net (${fmtGhs0(data.charge_offs_ghs)} written off, ${fmtGhs0(data.recoveries_ghs)} recovered)`}
@@ -777,7 +928,21 @@ function NetChargeOffCard({ data }: { data: DashboardSnapshot["portfolio"]["net_
 
 function RecoveryCard({ data }: { data: DashboardSnapshot["portfolio"]["recovery_on_churned"] }) {
   return (
-    <CardShell title="Recovery on churn" subtitle={`${fmtInt(data.cohort_size)} riders churned in window`}>
+    <CardShell
+      title="Recovery on churn"
+      subtitle={`${fmtInt(data.cohort_size)} riders churned in window`}
+      tip={
+        <>
+          <strong>Of riders who churned in this window with an
+          outstanding balance, what % of that balance was eventually
+          recovered.</strong>{" "}
+          The buckets show how long after churn the cash came in — your
+          bridge between the active collections and churned-recovery
+          workstreams. Outstanding-at-churn is approximated by today&apos;s
+          open balance (point-in-time snapshots would tighten this).
+        </>
+      }
+    >
       {data.cohort_size === 0 ? (
         <div className="text-[11px] text-ink-fade">{data.note}</div>
       ) : (

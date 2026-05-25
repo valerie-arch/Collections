@@ -268,8 +268,22 @@ function ChipGroup({
 function CountCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Invoices issued
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Invoices issued
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Count of invoices generated in the selected
+              period.</strong>{" "}
+              Track alongside Value invoiced to spot mix shifts — fewer
+              invoices but higher value often means a tilt toward B2B /
+              dealership billing.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-ink">
         {summary.total_invoices.toLocaleString()}
@@ -282,8 +296,21 @@ function CountCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
 function ValueCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Value invoiced
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Value invoiced
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>Total GHS billed in the selected period.</strong>{" "}
+              Top-line billing number — what&apos;s been claimed as owed.
+              The clay-tinted line below is the share still outstanding
+              (balance &gt; 0 on any of these invoices).
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-ink">
         {fmtGhs0(summary.total_invoiced_ghs)}
@@ -296,8 +323,22 @@ function ValueCard({ summary }: { summary: InvoicesListResponse["summary"] }) {
 function AgingCard({ aging }: { aging: InvoicesListResponse["aging"] }) {
   return (
     <section className="surface p-5">
-      <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
-        Invoice aging
+      <div className="flex items-center gap-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-ink-fade font-medium">
+          Invoice aging
+        </div>
+        <Tooltip
+          side="bottom" align="start"
+          content={
+            <>
+              <strong>% and GHS of unpaid invoice value sitting in
+              each DPD bucket.</strong>{" "}
+              DPD = days since the invoice was issued. The trend across
+              periods matters more than today&apos;s snapshot — a growing
+              31–60 bucket today is a 90+ problem in two months.
+            </>
+          }
+        />
       </div>
       <div className="mt-1 text-3xl font-display tracking-tightest text-ink">
         {fmtGhs0(aging.total_outstanding_ghs)}
