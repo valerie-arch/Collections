@@ -46,40 +46,50 @@ PAYMENTS_LOCAL = Path("sample_inputs/payments")
 
 
 def _channel_to_method(ch: str) -> str:
-    """Group raw parser channels into Finance-friendly methods."""
+    """Group raw parser channels into Finance-friendly methods.
+
+    Spec from Finance: MTN / Telecel / AirtelTigo are Mobile Money;
+    Bolt-reseller deductions are Bolt; everything else is Bank. There
+    is no "Other" bucket — uncategorised files default to Bank.
+    """
     ch = (ch or "").lower()
     if ch in {"mtn", "telecel", "hero"}:
         return "Mobile money"
-    if ch == "bank":
-        return "Bank transfer"
     if ch == "cash":
         return "Cash"
     if ch == "bolt_deduction":
         return "Bolt deduction"
-    return "Other"
+    return "Bank transfer"
 
 
 def _infer_channel_from_filename(filename: str) -> str:
-    """Fallback channel detection from the source filename. After the
-    drive_sync recursion fix, files arrive prefixed with their parent
-    subfolder name (e.g. "MTN_<orig>.csv", "Telecel_...", "Bank_...").
-    This catches rows whose in-file channel column was empty and whose
-    sender name didn't hit the parser's keyword detector."""
+    """Authoritative channel classification from the source filename.
+
+    Drive sync prefixes every payment file with its parent-folder name
+    (e.g. "MTN_<orig>.csv", "Telecel_...", "Bolt_..."), so filenames
+    carry the channel reliably. This is the primary classifier; the
+    in-file parser's _detect_channel only acts as a sanity check.
+
+    Rule:
+      * MTN / momo                       → "mtn"
+      * Telecel / Vodafone / M-Pesa      → "telecel"
+      * AirtelTigo / Airtel / Tigo / Hero → "hero"
+      * Bolt reseller                    → "bolt_deduction"
+      * anything else                    → "bank" (default)
+    """
     n = (filename or "").lower()
-    if "mtn" in n or "momo" in n:
-        return "mtn"
-    if "telecel" in n or "vodafone" in n:
+    # Check specific carrier names BEFORE the generic "momo" alias —
+    # otherwise "Momo_Wallets_Statements_Telecel_..." would resolve to
+    # MTN because "momo" appears earlier in the filename.
+    if "telecel" in n or "vodafone" in n or "mpesa" in n or "m-pesa" in n:
         return "telecel"
-    if "airteltigo" in n or "hero" in n or "airtel" in n:
+    if "airteltigo" in n or "airtel" in n or "tigo" in n or "hero" in n:
         return "hero"
-    if any(t in n for t in ("bank", "absa", "stanbic", "fidelity",
-                            "gcb", "ecobank", "cal_bank", "uba")):
-        return "bank"
-    if "cash" in n:
-        return "cash"
     if "bolt" in n:
         return "bolt_deduction"
-    return "unknown"
+    if "mtn" in n or "momo" in n:
+        return "mtn"
+    return "bank"
 
 
 def _classify_stream(amount_ghs: float, rider_id: str, sub_map: dict) -> str:
@@ -193,10 +203,16 @@ def _list_payments_impl(
     if PAYMENTS_LOCAL.exists():
         for r in parse_folder(PAYMENTS_LOCAL):
             d = r.date
-            # When the in-file channel detector returns "unknown", fall back
-            # to the filename (which now carries the subfolder prefix from
-            # the recursive sync).
-            ch = r.channel if r.channel != "unknown" else _infer_channel_from_filename(r.source_file)
+            # Filename is authoritative for channel — Drive sync prefixes
+            # every file with its parent-folder name (MTN_, Telecel_,
+            # AirtelTigo_, Bolt_, Bank_...). The in-file _detect_channel
+            # only wins when the filename has no signal and the parser
+            # found something specific in the row (e.g. "bolt" appearing
+            # in a sender name on a bank CSV).
+            ch = _infer_channel_from_filename(r.source_file)
+            if ch == "bank" and r.channel not in {"unknown", "bank"}:
+                # Filename says bank, but row content has a stronger signal.
+                ch = r.channel
             rows.append({
                 "source": "receipt",
                 "channel": ch,

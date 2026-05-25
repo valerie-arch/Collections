@@ -68,17 +68,40 @@ def _norm(s: str) -> str:
 
 
 def _find_col(headers: list[str], aliases: tuple[str, ...]) -> Optional[str]:
+    cols = _find_all_cols(headers, aliases)
+    return cols[0] if cols else None
+
+
+def _find_all_cols(headers: list[str], aliases: tuple[str, ...]) -> list[str]:
+    """Return ALL headers matching any alias, ordered by alias priority.
+
+    Used as a fallback chain at row-parse time: e.g. for the Reference
+    field we try "External id" first, then fall back to "Id" for rows
+    where the External id is blank (internal MoMo transfers etc.)."""
     norm_headers = [(h, _norm(h)) for h in headers]
-    # Exact match first
-    for original, n in norm_headers:
-        if n in aliases:
-            return original
-    # Substring match
-    for original, n in norm_headers:
-        for a in aliases:
-            if a in n:
-                return original
-    return None
+    seen: set[str] = set()
+    out: list[str] = []
+    # Exact phase: walk aliases first so the most-specific alias wins.
+    for a in aliases:
+        for original, n in norm_headers:
+            if n == a and original not in seen:
+                out.append(original)
+                seen.add(original)
+    # Substring phase: same order — earlier alias = higher priority.
+    for a in aliases:
+        for original, n in norm_headers:
+            if a in n and original not in seen:
+                out.append(original)
+                seen.add(original)
+    return out
+
+
+def _first_nonempty(row: dict, cols: list[str]) -> str:
+    for c in cols:
+        v = str(row.get(c, "") or "").strip()
+        if v:
+            return v
+    return ""
 
 
 def _parse_date(v: str) -> Optional[date]:
@@ -204,10 +227,12 @@ def parse_payment_file(path: str | Path) -> list[PaymentRow]:
     headers = list(first.keys())
     col_date = _find_col(headers, _DATE_KEYS)
     col_amount = _find_col(headers, _AMOUNT_KEYS)
-    col_name = _find_col(headers, _NAME_KEYS)
-    col_phone = _find_col(headers, _PHONE_KEYS)
-    col_ref = _find_col(headers, _REF_KEYS)
-    col_narration = _find_col(headers, _NARRATION_KEYS)
+    # Use chains so per-row fallback works when the preferred column is
+    # blank for a given transaction (common with MoMo's optional fields).
+    name_chain = _find_all_cols(headers, _NAME_KEYS)
+    phone_chain = _find_all_cols(headers, _PHONE_KEYS)
+    ref_chain = _find_all_cols(headers, _REF_KEYS)
+    narration_chain = _find_all_cols(headers, _NARRATION_KEYS)
     col_channel = _find_col(headers, _CHANNEL_KEYS)
 
     if not col_amount:
@@ -225,14 +250,16 @@ def parse_payment_file(path: str | Path) -> list[PaymentRow]:
         amount = _parse_amount(str(row.get(col_amount, "")))
         if amount is None or amount <= 0:
             continue
-        raw_name = str(row.get(col_name, "")).strip() if col_name else ""
-        msisdn = _extract_phone(
-            str(row.get(col_phone, "")) if col_phone else "",
-            raw_name,
-            str(row.get(col_ref, "")) if col_ref else "",
-        )
-        ref = str(row.get(col_ref, "")).strip() if col_ref else ""
-        narration = str(row.get(col_narration, "")).strip() if col_narration else ""
+        raw_name = _first_nonempty(row, name_chain)
+        phone_blob = _first_nonempty(row, phone_chain)
+        msisdn = _extract_phone(phone_blob, raw_name, _first_nonempty(row, ref_chain))
+        # If extract_phone couldn't validate a Ghana number but we DO have a
+        # raw "From account" value, keep it as the displayed phone so the
+        # UI shows something instead of "—".
+        if not msisdn and phone_blob:
+            msisdn = phone_blob
+        ref = _first_nonempty(row, ref_chain)
+        narration = _first_nonempty(row, narration_chain)
         channel = _detect_channel(
             str(row.get(col_channel, "")) if col_channel else "",
             raw_name,
